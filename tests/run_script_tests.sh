@@ -472,6 +472,10 @@ inc_winvq_ww=(-I"$tmpdir/casefold/winvq/include/wwlib32" -I"$ROOT_DIR/WINVQ/INCL
 "$tmpdir/aspect_viewport_test"
 
 "${cxx_cmd[@]}" "${inc_port[@]}" \
+  "$ROOT_DIR/tests/crt_mask_test.cpp" -o "$tmpdir/crt_mask_test"
+"$tmpdir/crt_mask_test"
+
+"${cxx_cmd[@]}" "${inc_port[@]}" \
   "$ROOT_DIR/tests/mobile_touch_gesture_test.cpp" -o "$tmpdir/mobile_touch_gesture_test"
 "$tmpdir/mobile_touch_gesture_test"
 

@@ -9,15 +9,20 @@
 #include "mobile_pan.h"
 #include "mobile_touch_gesture.h"
 #include "ra_aspect_viewport.h"
+#include "ra_crt_mask.h"
 #include <mmsystem.h>
 
 static SDL_Window *MacWindow = 0;
 static SDL_Renderer *MacRenderer = 0;
 static SDL_Texture *MacTexture = 0;
+static SDL_Texture *MacCRTTexture = 0;
 static uint32_t *MacFrame = 0;
 static int MacFramePixels = 0;
 static int MacWidth = 0;
 static int MacHeight = 0;
+static int MacCRTWidth = 0;
+static int MacCRTHeight = 0;
+static SDL_Rect MacCRTViewport = {0, 0, 0, 0};
 static bool MacSDLReady = false;
 static bool MacQuitRequested = false;
 static bool MacFullscreen = false;
@@ -74,6 +79,16 @@ static bool mac_fullscreen_env_requested(void)
 static bool mac_widescreen_env_requested(void)
 {
 	char const *value = getenv("RA_WIDESCREEN");
+	if (!value || !value[0]) {
+		return false;
+	}
+	return strcmp(value, "0") != 0 && strcmp(value, "false") != 0 && strcmp(value, "FALSE") != 0 &&
+		strcmp(value, "no") != 0 && strcmp(value, "NO") != 0;
+}
+
+static bool mac_crt_env_requested(void)
+{
+	char const *value = getenv("RA_CRT");
 	if (!value || !value[0]) {
 		return false;
 	}
@@ -470,6 +485,12 @@ static void mobile_maybe_send_long_press(void)
 
 static void mac_destroy_video_objects(void)
 {
+	if (MacCRTTexture) {
+		SDL_DestroyTexture(MacCRTTexture);
+		MacCRTTexture = 0;
+	}
+	MacCRTWidth = 0;
+	MacCRTHeight = 0;
 	if (MacTexture) {
 		SDL_DestroyTexture(MacTexture);
 		MacTexture = 0;
@@ -482,6 +503,45 @@ static void mac_destroy_video_objects(void)
 		SDL_DestroyWindow(MacWindow);
 		MacWindow = 0;
 	}
+}
+
+static bool mac_prepare_crt_overlay(SDL_Rect destination, int logical_height)
+{
+	int output_w = 0;
+	int output_h = 0;
+	if (SDL_GetRendererOutputSize(MacRenderer, &output_w, &output_h) != 0 || output_w <= 0 || output_h <= 0) {
+		return false;
+	}
+	if (MacCRTTexture && MacCRTWidth == output_w && MacCRTHeight == output_h &&
+		MacCRTViewport.x == destination.x && MacCRTViewport.y == destination.y &&
+		MacCRTViewport.w == destination.w && MacCRTViewport.h == destination.h) {
+		return true;
+	}
+
+	if (MacCRTTexture) {
+		SDL_DestroyTexture(MacCRTTexture);
+		MacCRTTexture = 0;
+	}
+	uint32_t *pixels = (uint32_t *)malloc((size_t)output_w * output_h * sizeof(uint32_t));
+	if (!pixels) {
+		return false;
+	}
+	RAAspectViewport viewport = {destination.x, destination.y, destination.w, destination.h};
+	for (int y = 0; y < output_h; ++y) {
+		for (int x = 0; x < output_w; ++x) {
+			pixels[y * output_w + x] = RA_CRTMaskPixel(x, y, viewport, logical_height);
+		}
+	}
+	MacCRTTexture = SDL_CreateTexture(MacRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, output_w, output_h);
+	if (MacCRTTexture) {
+		SDL_UpdateTexture(MacCRTTexture, 0, pixels, output_w * (int)sizeof(uint32_t));
+		SDL_SetTextureBlendMode(MacCRTTexture, SDL_BLENDMODE_MOD);
+		MacCRTWidth = output_w;
+		MacCRTHeight = output_h;
+		MacCRTViewport = destination;
+	}
+	free(pixels);
+	return MacCRTTexture != 0;
 }
 
 bool MacSDL_SetFullscreen(bool enabled)
@@ -859,6 +919,9 @@ void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pit
 	SDL_SetRenderDrawColor(MacRenderer, 0, 0, 0, 255);
 	SDL_RenderClear(MacRenderer);
 	SDL_RenderCopy(MacRenderer, MacTexture, &source, &destination);
+	if (mac_crt_env_requested() && mac_prepare_crt_overlay(destination, height)) {
+		SDL_RenderCopy(MacRenderer, MacCRTTexture, 0, 0);
+	}
 	SDL_RenderPresent(MacRenderer);
 	MacPresenting = false;
 }
