@@ -311,6 +311,12 @@ Use the monitor aspect ratio to show more battlefield horizontally without stret
 RA_FULLSCREEN=1 RA_WIDESCREEN=1 scripts/run_linux_dev.sh
 ```
 
+Add the optional VGA CRT phosphor and scanline treatment:
+
+```sh
+RA_FULLSCREEN=1 RA_WIDESCREEN=1 RA_CRT=1 scripts/run_linux_dev.sh
+```
+
 ## Tests
 
 Run the source-level tests and script checks:
