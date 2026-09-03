@@ -21,6 +21,7 @@ static int MacHeight = 0;
 static bool MacSDLReady = false;
 static bool MacQuitRequested = false;
 static bool MacFullscreen = false;
+static bool MacPresenting = false;
 static SDL_threadID MacMainThread = 0;
 static uint32_t MacPalette[256];
 static MSG MacMessageQueue[512];
@@ -554,16 +555,8 @@ bool MacSDL_SetMode(int width, int height)
 	}
 	SDL_ShowCursor(SDL_DISABLE);
 
-	Uint32 renderer_flags = SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC;
-#if defined(RA_MOBILE_TOUCH)
-	renderer_flags = SDL_RENDERER_ACCELERATED;
-#endif
+	Uint32 renderer_flags = SDL_RENDERER_ACCELERATED;
 	MacRenderer = SDL_CreateRenderer(MacWindow, -1, renderer_flags);
-#if !defined(RA_MOBILE_TOUCH)
-	if (!MacRenderer) {
-		MacRenderer = SDL_CreateRenderer(MacWindow, -1, SDL_RENDERER_ACCELERATED);
-	}
-#endif
 	if (!MacRenderer) {
 		MacRenderer = SDL_CreateRenderer(MacWindow, -1, SDL_RENDERER_SOFTWARE);
 	}
@@ -779,9 +772,14 @@ void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pit
 	if (MacMainThread && SDL_ThreadID() != MacMainThread) {
 		return;
 	}
+	if (MacPresenting) {
+		return;
+	}
 
+	MacPresenting = true;
 	mac_sdl_pump_events(false);
 	if (!MacRenderer || !MacTexture) {
+		MacPresenting = false;
 		return;
 	}
 
@@ -789,6 +787,7 @@ void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pit
 	if (needed > MacFramePixels) {
 		uint32_t *new_frame = (uint32_t *)realloc(MacFrame, (size_t)needed * sizeof(uint32_t));
 		if (!new_frame) {
+			MacPresenting = false;
 			return;
 		}
 		MacFrame = new_frame;
@@ -811,12 +810,14 @@ void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pit
 	destination.w = viewport.w;
 	destination.h = viewport.h;
 	if (destination.w <= 0 || destination.h <= 0) {
+		MacPresenting = false;
 		return;
 	}
 	SDL_SetRenderDrawColor(MacRenderer, 0, 0, 0, 255);
 	SDL_RenderClear(MacRenderer);
 	SDL_RenderCopy(MacRenderer, MacTexture, 0, &destination);
 	SDL_RenderPresent(MacRenderer);
+	MacPresenting = false;
 }
 
 extern "C" BOOL MacWin_PeekMessage(MSG *msg, HWND, UINT, UINT, UINT remove)
