@@ -506,11 +506,11 @@ int main(int argc, char * argv[])
 			ScreenHeight = 400;
 
 			if (VisiblePage.Get_Height() == 480) {
-				SeenBuff.Attach(&VisiblePage, 0, 40, 640, 400);
-				HidPage.Attach(&HiddenPage, 0, 40, 640, 400);
+				SeenBuff.Attach(&VisiblePage, 0, 40, ScreenWidth, 400);
+				HidPage.Attach(&HiddenPage, 0, 40, ScreenWidth, 400);
 			} else {
-				SeenBuff.Attach(&VisiblePage, 0, 0, 640, 400);
-				HidPage.Attach(&HiddenPage, 0, 0, 640, 400);
+				SeenBuff.Attach(&VisiblePage, 0, 0, ScreenWidth, 400);
+				HidPage.Attach(&HiddenPage, 0, 0, ScreenWidth, 400);
 			}
 			#endif // MPEGMOVIE - Denzil 6/10/98
 			
@@ -782,13 +782,13 @@ bool InitDDraw(void)
 
 	if (VisiblePage.Get_Height() == 480)
 		{
-		SeenBuff.Attach(&VisiblePage, 0, 40, 640, 400);
-		HidPage.Attach(&HiddenPage, 0, 40, 640, 400);
+		SeenBuff.Attach(&VisiblePage, 0, 40, ScreenWidth, 400);
+		HidPage.Attach(&HiddenPage, 0, 40, ScreenWidth, 400);
 		}
 	else
 		{
-		SeenBuff.Attach(&VisiblePage, 0, 0, 640, 400);
-		HidPage.Attach(&HiddenPage, 0, 0, 640, 400);
+		SeenBuff.Attach(&VisiblePage, 0, 0, ScreenWidth, 400);
+		HidPage.Attach(&HiddenPage, 0, 0, ScreenWidth, 400);
 		}
 
 	return true;
@@ -1036,5 +1036,4 @@ void Get_OS_Version (void)
 
 
 #endif	//WIN32
-
 

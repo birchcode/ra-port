@@ -79,6 +79,8 @@ void ScrollClass::AI(KeyNumType &input, int x, int y)
 		bool noscroll = false;
 
 		if (!noscroll) {
+			int screen_width = SeenBuff.Get_Width();
+			int screen_height = SeenBuff.Get_Height();
 			bool at_screen_edge = (y == 0 || x == 0 || x >= SeenBuff.Get_Width()-1 || y >= SeenBuff.Get_Height()-1);
 
 			/*
@@ -96,19 +98,19 @@ void ScrollClass::AI(KeyNumType &input, int x, int y)
 					int altx = x;
 					if (altx < 50 * RESFACTOR) altx -= ((50 * RESFACTOR)-altx);
 					altx = max(altx, 0);
-					if (altx > ((320-50) * RESFACTOR)) altx += altx-((320-50) * RESFACTOR);
-					altx = min(altx, (320 * RESFACTOR));
-					if (altx > (50 * RESFACTOR) && altx < ((320-50) * RESFACTOR)) {
-						altx += (((320/2) * RESFACTOR)-altx)/2;
+					if (altx > screen_width-(50 * RESFACTOR)) altx += altx-(screen_width-(50 * RESFACTOR));
+					altx = min(altx, screen_width);
+					if (altx > (50 * RESFACTOR) && altx < screen_width-(50 * RESFACTOR)) {
+						altx += ((screen_width/2)-altx)/2;
 					}
 
 					int alty = y;
 					if (alty < (50 * RESFACTOR)) alty -= (50 * RESFACTOR)-alty;
 					alty = max(alty, 0);
-					if (alty > (150 * RESFACTOR)) alty += alty-(150 * RESFACTOR);
-					alty = min(alty, 200 * RESFACTOR);
+					if (alty > screen_height-(50 * RESFACTOR)) alty += alty-(screen_height-(50 * RESFACTOR));
+					alty = min(alty, screen_height);
 
-					direction = (DirType)Desired_Facing256((320/2) * RESFACTOR, (200/2) * RESFACTOR, altx, alty);
+					direction = (DirType)Desired_Facing256(screen_width/2, screen_height/2, altx, alty);
 				}
 
 				int control = Dir_Facing(direction);
@@ -243,4 +245,3 @@ bool ScrollClass::Set_Autoscroll(int control)
 	}
 	return(old);
 }
-
