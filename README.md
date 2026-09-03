@@ -302,6 +302,12 @@ Command+Return on macOS
 Alt+Return on Linux
 ```
 
+Use the monitor aspect ratio to show more battlefield horizontally without stretching:
+
+```sh
+RA_FULLSCREEN=1 RA_WIDESCREEN=1 scripts/run_linux_dev.sh
+```
+
 ## Tests
 
 Run the source-level tests and script checks:

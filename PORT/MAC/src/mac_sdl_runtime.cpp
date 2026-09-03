@@ -74,6 +74,16 @@ static bool mac_fullscreen_env_requested(void)
 		strcmp(value, "no") != 0 && strcmp(value, "NO") != 0;
 }
 
+static bool mac_widescreen_env_requested(void)
+{
+	char const *value = getenv("RA_WIDESCREEN");
+	if (!value || !value[0]) {
+		return false;
+	}
+	return strcmp(value, "0") != 0 && strcmp(value, "false") != 0 && strcmp(value, "FALSE") != 0 &&
+		strcmp(value, "no") != 0 && strcmp(value, "NO") != 0;
+}
+
 static LPARAM mac_pack_xy(int x, int y)
 {
 	return (LPARAM)(((y & 0xFFFF) << 16) | (x & 0xFFFF));
@@ -489,9 +499,9 @@ bool MacSDL_GetFullscreen(void)
 	return MacFullscreen;
 }
 
-bool MacSDL_SetMode(int width, int height)
+static bool mac_sdl_set_mode(int *width, int *height, bool allow_widescreen)
 {
-	if (width <= 0 || height <= 0) {
+	if (!width || !height || *width <= 0 || *height <= 0) {
 		return false;
 	}
 
@@ -525,7 +535,17 @@ bool MacSDL_SetMode(int width, int height)
 #endif
 	}
 
-	if (MacWindow && MacWidth == width && MacHeight == height) {
+	if (allow_widescreen && mac_widescreen_env_requested() && *width == 640 && *height == 400) {
+		SDL_DisplayMode display;
+		if (SDL_GetDesktopDisplayMode(0, &display) == 0) {
+			*width = RA_WidescreenWidth(*width, *height, display.w, display.h);
+			SDL_Log("Red Alert widescreen mode=%dx%d desktop=%dx%d", *width, *height, display.w, display.h);
+		}
+	}
+	int selected_width = *width;
+	int selected_height = *height;
+
+	if (MacWindow && MacWidth == selected_width && MacHeight == selected_height) {
 		if (mac_fullscreen_env_requested() && !MacFullscreen) {
 			MacSDL_SetFullscreen(true);
 		}
@@ -533,8 +553,8 @@ bool MacSDL_SetMode(int width, int height)
 	}
 
 	mac_destroy_video_objects();
-	MacWidth = width;
-	MacHeight = height;
+	MacWidth = selected_width;
+	MacHeight = selected_height;
 
 	if (mac_fullscreen_env_requested()) {
 		MacFullscreen = true;
@@ -549,7 +569,7 @@ bool MacSDL_SetMode(int width, int height)
 	if (MacFullscreen) {
 		window_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 	}
-	MacWindow = SDL_CreateWindow("Command & Conquer: Red Alert", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, window_flags);
+	MacWindow = SDL_CreateWindow("Command & Conquer: Red Alert", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, selected_width, selected_height, window_flags);
 	if (!MacWindow) {
 		return false;
 	}
@@ -570,8 +590,18 @@ bool MacSDL_SetMode(int width, int height)
 		SDL_Log("Red Alert renderer=%s flags=0x%08x", renderer_info.name ? renderer_info.name : "(unknown)", renderer_info.flags);
 	}
 	SDL_SetRenderDrawColor(MacRenderer, 0, 0, 0, 255);
-	MacTexture = SDL_CreateTexture(MacRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height);
+	MacTexture = SDL_CreateTexture(MacRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, selected_width, selected_height);
 	return MacTexture != 0;
+}
+
+bool MacSDL_SetMode(int width, int height)
+{
+	return mac_sdl_set_mode(&width, &height, false);
+}
+
+bool MacSDL_SetGameMode(int *width, int *height)
+{
+	return mac_sdl_set_mode(width, height, true);
 }
 
 void MacSDL_Shutdown(void)

@@ -115,7 +115,7 @@ void TabClass::Draw_Credits_Tab(void)
 	/*
 	** Use the new sidebar art for 640x400
 	*/
-	CC_Draw_Shape(TabShape, Map.MoneyFlashTimer > 1 ? 8 : 6, (320-EVA_WIDTH) * RESFACTOR, 0, WINDOW_MAIN, SHAPE_NORMAL);
+	CC_Draw_Shape(TabShape, Map.MoneyFlashTimer > 1 ? 8 : 6, SeenBuff.Get_Width()-(EVA_WIDTH * RESFACTOR), 0, WINDOW_MAIN, SHAPE_NORMAL);
 #else
 	CC_Draw_Shape(TabShape, 4, (320-(EVA_WIDTH*2)) * RESFACTOR, 0, WINDOW_MAIN, SHAPE_NORMAL);
 #endif
@@ -123,7 +123,7 @@ void TabClass::Draw_Credits_Tab(void)
 	if (Scen.MissionTimer.Is_Active()) {
 		bool light = (Scen.MissionTimer < TICKS_PER_MINUTE * Rule.TimerWarning) || Map.FlasherTimer > 0;
 #ifdef WIN32
-		CC_Draw_Shape(TabShape, light ? 4 : 2, 320, 0, WINDOW_MAIN, SHAPE_NORMAL);
+		CC_Draw_Shape(TabShape, light ? 4 : 2, SeenBuff.Get_Width()-(EVA_WIDTH * RESFACTOR * 2), 0, WINDOW_MAIN, SHAPE_NORMAL);
 #else
 		CC_Draw_Shape(TabShape, light ? 6 : 5, EVA_WIDTH * RESFACTOR, 0, WINDOW_MAIN, SHAPE_NORMAL);
 #endif
@@ -138,9 +138,9 @@ void TabClass::Hilite_Tab(int tab)
 	int textx = (EVA_WIDTH/2) * RESFACTOR;
 
 	if (tab) {
-		xpos = (320-EVA_WIDTH) * RESFACTOR;
+		xpos = SeenBuff.Get_Width()-(EVA_WIDTH * RESFACTOR);
 		text = TXT_TAB_SIDEBAR;
-		textx = (320-(EVA_WIDTH/2)) * RESFACTOR;
+		textx = SeenBuff.Get_Width()-((EVA_WIDTH/2) * RESFACTOR);
 	}
 
 #ifdef WIN32

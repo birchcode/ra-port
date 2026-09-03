@@ -393,12 +393,18 @@ public:
 	HRESULT SetCooperativeLevel(HWND, DWORD) { return DD_OK; }
 	HRESULT SetDisplayMode(DWORD width, DWORD height, DWORD bpp)
 	{
-		if (!MacSDL_SetMode((int)width, (int)height)) {
+		int selected_width = (int)width;
+		int selected_height = (int)height;
+		if (!MacSDL_SetGameMode(&selected_width, &selected_height)) {
 			return DDERR_INVALIDMODE;
 		}
-		mode_width = (int)width;
-		mode_height = (int)height;
+		mode_width = selected_width;
+		mode_height = selected_height;
 		mode_bpp = (int)bpp;
+		extern int ScreenWidth;
+		extern int ScreenHeight;
+		ScreenWidth = mode_width;
+		ScreenHeight = mode_height;
 		return DD_OK;
 	}
 	HRESULT CreatePalette(DWORD, LPPALETTEENTRY entries, IDirectDrawPalette **palette, void *)

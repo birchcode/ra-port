@@ -6,8 +6,11 @@
 static bool g_mode_result = true;
 static PALETTEENTRY g_last_palette[256];
 static int g_last_palette_count = 0;
+int ScreenWidth = 640;
+int ScreenHeight = 400;
 
 bool MacSDL_SetMode(int, int) { return g_mode_result; }
+bool MacSDL_SetGameMode(int *, int *) { return g_mode_result; }
 void MacSDL_Shutdown(void) {}
 void MacSDL_SetPalette(PALETTEENTRY const *entries, int count)
 {

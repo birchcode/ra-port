@@ -15,6 +15,19 @@ static inline int RA_ClampInt(int value, int min_value, int max_value)
 	return value;
 }
 
+static inline int RA_WidescreenWidth(int base_width, int base_height, int display_width, int display_height)
+{
+	if (base_width <= 0 || base_height <= 0 || display_width <= 0 || display_height <= 0) {
+		return base_width;
+	}
+	int width = (int)(((long long)base_height * display_width + (display_height / 2)) / display_height);
+	if (width <= base_width) return base_width;
+	int const sidebar_width = 160;
+	int const cell_width = 24;
+	int cells = (width - sidebar_width + (cell_width / 2)) / cell_width;
+	return sidebar_width + (cells * cell_width);
+}
+
 static inline RAAspectViewport RA_CalculateAspectViewport(int source_w, int source_h, int target_w, int target_h)
 {
 	RAAspectViewport viewport = {0, 0, 0, 0};

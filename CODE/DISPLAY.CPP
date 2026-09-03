@@ -151,6 +151,8 @@ DisplayClass::DisplayClass(void) :
 void DisplayClass::One_Time(void)
 {
 	MapClass::One_Time();
+	WindowList[WINDOW_MAIN][WINDOWWIDTH] = SeenBuff.Get_Width();
+	WindowList[WINDOW_MAIN][WINDOWHEIGHT] = SeenBuff.Get_Height();
 
 	/*
 	** Init the CellRedraw bit array.  Do not do this in the constructor, since the

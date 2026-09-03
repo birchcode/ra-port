@@ -13,6 +13,10 @@ static int expect_int(int actual, int expected, char const *message)
 
 int main(void)
 {
+	if (expect_int(RA_WidescreenWidth(640, 400, 1920, 1080), 712, "16:9 logical width")) return 1;
+	if (expect_int(RA_WidescreenWidth(640, 400, 3440, 1440), 952, "ultrawide logical width")) return 1;
+	if (expect_int(RA_WidescreenWidth(640, 400, 1280, 1024), 640, "narrow displays keep base width")) return 1;
+
 	RAAspectViewport tablet = RA_CalculateAspectViewport(640, 400, 2550, 1490);
 	if (expect_int(tablet.x, 83, "wide tablet viewport x")) return 1;
 	if (expect_int(tablet.y, 0, "wide tablet viewport y")) return 1;
