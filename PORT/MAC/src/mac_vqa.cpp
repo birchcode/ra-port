@@ -640,7 +640,7 @@ static bool vqa_load_codebook(MacVQAState *state, MacVQAChunk const &chunk, bool
 		if (compressed) {
 			if (!data.empty()) {
 				unsigned long written = 0;
-				if (!vqa_lcw_uncompress(data, state->codebook, &written) || written != state->codebook.size()) return false;
+				if (!vqa_lcw_uncompress(data, state->codebook, &written)) return false;
 			}
 		} else {
 			unsigned long count = std::min((unsigned long)data.size(), (unsigned long)state->codebook.size());
@@ -673,7 +673,7 @@ static bool vqa_load_codebook(MacVQAState *state, MacVQAChunk const &chunk, bool
 		if (!state->partial_codebook.empty()) {
 			if (compressed) {
 				unsigned long written = 0;
-				if (!vqa_lcw_uncompress(state->partial_codebook, state->codebook, &written) || written != state->codebook.size()) return false;
+				if (!vqa_lcw_uncompress(state->partial_codebook, state->codebook, &written)) return false;
 			} else {
 				unsigned long count = std::min((unsigned long)state->partial_codebook.size(), (unsigned long)state->codebook.size());
 				memcpy(&state->codebook[0], &state->partial_codebook[0], count);
@@ -719,7 +719,7 @@ static bool vqa_load_pointers(MacVQAState *state, MacVQAChunk const &chunk, bool
 	}
 	if (compressed) {
 		unsigned long written = 0;
-		if (!vqa_lcw_uncompress(data, state->pointers, &written) || written != state->pointers.size()) return false;
+		if (!vqa_lcw_uncompress(data, state->pointers, &written)) return false;
 	} else {
 		unsigned long count = std::min((unsigned long)data.size(), (unsigned long)state->pointers.size());
 		if (count) {
