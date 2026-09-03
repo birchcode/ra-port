@@ -9,6 +9,7 @@
  */
 
 #include	"function.h"
+#include	"mac_sdl_runtime.h"
 #include	"loaddlg.h"
 #ifdef WIN32
 #ifdef WINSOCK_IPX
@@ -367,6 +368,7 @@ extern bool Get_Broadcast_Addresses (void);
  *=============================================================================================*/
 bool Select_Game(bool fade)
 {
+	MacSDL_SetLegacyViewport(true);
 	//	Enums in Select_Game() must match order of buttons in Main_Menu().
 #ifdef FIXIT_VERSION_3
 	enum {
@@ -1535,6 +1537,7 @@ bool Select_Game(bool fade)
 
 #endif
 
+	MacSDL_SetLegacyViewport(false);
 	return(true);
 }
 

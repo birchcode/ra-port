@@ -29,6 +29,9 @@ int main(void)
 	if (expect_int(phone.w, 1728, "wide phone viewport width")) return 1;
 	if (expect_int(phone.h, 1080, "wide phone viewport height")) return 1;
 
+	RAAspectViewport desktop = RA_CalculateAspectViewport(640, 400, 2560, 1440);
+	if (expect_int(desktop.x, 128, "16:9 desktop centers legacy content")) return 1;
+
 	RAAspectViewport tall = RA_CalculateAspectViewport(640, 400, 1200, 1000);
 	if (expect_int(tall.x, 0, "tall viewport x")) return 1;
 	if (expect_int(tall.y, 125, "tall viewport y")) return 1;

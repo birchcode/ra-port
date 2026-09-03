@@ -840,12 +840,18 @@ static bool vqa_present_or_callback(MacVQAState *state)
 	}
 
 	bool stop = false;
+#if defined(RA_GAME_RUNTIME)
+	bool legacy_viewport = MacSDL_SetLegacyViewport(true);
+#endif
 	if (state->config.DrawerCallback) {
 		stop = state->config.DrawerCallback(image, state->current_frame) != 0;
 	} else {
 		MacSDL_SetMode(width, height);
 		MacSDL_Present8(image, width, height, width);
 	}
+#if defined(RA_GAME_RUNTIME)
+	MacSDL_SetLegacyViewport(legacy_viewport);
+#endif
 	state->stats.drawn_frames++;
 	return stop;
 }
