@@ -22,6 +22,7 @@ static bool MacSDLReady = false;
 static bool MacQuitRequested = false;
 static bool MacFullscreen = false;
 static bool MacPresenting = false;
+static bool MacLegacyViewport = false;
 static SDL_threadID MacMainThread = 0;
 static uint32_t MacPalette[256];
 static MSG MacMessageQueue[512];
@@ -31,10 +32,6 @@ static unsigned char MacKeyState[256];
 static unsigned char MacToggleState[256];
 static POINT MacMousePoint = {0, 0};
 static bool MacUnmodifiedKeyDispatch = false;
-
-#if defined(RA_MOBILE_TOUCH)
-extern bool InMovie;
-#endif
 
 #if defined(RA_MOBILE_TOUCH)
 static MobileTouchGesture MobileTouch;
@@ -89,6 +86,11 @@ static LPARAM mac_pack_xy(int x, int y)
 	return (LPARAM)(((y & 0xFFFF) << 16) | (x & 0xFFFF));
 }
 
+static int mac_content_width(void)
+{
+	return MacLegacyViewport && MacWidth > 640 && MacHeight == 400 ? 640 : MacWidth;
+}
+
 static RAAspectViewport mac_window_viewport(void)
 {
 	int window_w = MacWidth;
@@ -96,7 +98,7 @@ static RAAspectViewport mac_window_viewport(void)
 	if (MacWindow) {
 		SDL_GetWindowSize(MacWindow, &window_w, &window_h);
 	}
-	return RA_CalculateAspectViewport(MacWidth, MacHeight, window_w, window_h);
+	return RA_CalculateAspectViewport(mac_content_width(), MacHeight, window_w, window_h);
 }
 
 static RAAspectViewport mac_renderer_viewport(int source_w, int source_h)
@@ -115,7 +117,7 @@ static bool mac_to_logical_point(int *x, int *y)
 		return false;
 	}
 	RAAspectViewport viewport = mac_window_viewport();
-	return RA_MapViewportPoint(viewport, MacWidth, MacHeight, *x, *y, x, y) != 0;
+	return RA_MapViewportPoint(viewport, mac_content_width(), MacHeight, *x, *y, x, y) != 0;
 }
 
 static BOOL mac_queue_message(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
@@ -416,8 +418,9 @@ static bool mobile_logical_point(float normalized_x, float normalized_y, int *lo
 	screen_x = RA_ClampInt(screen_x, 0, window_w - 1);
 	screen_y = RA_ClampInt(screen_y, 0, window_h - 1);
 
-	RAAspectViewport viewport = RA_CalculateAspectViewport(MacWidth, MacHeight, window_w, window_h);
-	return RA_MapViewportPoint(viewport, MacWidth, MacHeight, screen_x, screen_y, logical_x, logical_y) != 0;
+	int content_width = mac_content_width();
+	RAAspectViewport viewport = RA_CalculateAspectViewport(content_width, MacHeight, window_w, window_h);
+	return RA_MapViewportPoint(viewport, content_width, MacHeight, screen_x, screen_y, logical_x, logical_y) != 0;
 }
 
 static void mobile_emit_pan_key(void *, int vk)
@@ -539,6 +542,7 @@ static bool mac_sdl_set_mode(int *width, int *height, bool allow_widescreen)
 		SDL_DisplayMode display;
 		if (SDL_GetDesktopDisplayMode(0, &display) == 0) {
 			*width = RA_WidescreenWidth(*width, *height, display.w, display.h);
+			MacLegacyViewport = *width > 640;
 			SDL_Log("Red Alert widescreen mode=%dx%d desktop=%dx%d", *width, *height, display.w, display.h);
 		}
 	}
@@ -602,6 +606,13 @@ bool MacSDL_SetMode(int width, int height)
 bool MacSDL_SetGameMode(int *width, int *height)
 {
 	return mac_sdl_set_mode(width, height, true);
+}
+
+bool MacSDL_SetLegacyViewport(bool enabled)
+{
+	bool previous = MacLegacyViewport;
+	MacLegacyViewport = enabled;
+	return previous;
 }
 
 void MacSDL_Shutdown(void)
@@ -833,7 +844,9 @@ void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pit
 	}
 
 	SDL_UpdateTexture(MacTexture, 0, MacFrame, width * (int)sizeof(uint32_t));
-	RAAspectViewport viewport = mac_renderer_viewport(width, height);
+	int content_width = mac_content_width();
+	RAAspectViewport viewport = mac_renderer_viewport(content_width, height);
+	SDL_Rect source = {0, 0, content_width, height};
 	SDL_Rect destination;
 	destination.x = viewport.x;
 	destination.y = viewport.y;
@@ -845,7 +858,7 @@ void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pit
 	}
 	SDL_SetRenderDrawColor(MacRenderer, 0, 0, 0, 255);
 	SDL_RenderClear(MacRenderer);
-	SDL_RenderCopy(MacRenderer, MacTexture, 0, &destination);
+	SDL_RenderCopy(MacRenderer, MacTexture, &source, &destination);
 	SDL_RenderPresent(MacRenderer);
 	MacPresenting = false;
 }

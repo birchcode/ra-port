@@ -22,6 +22,7 @@ if(APPLE)
     )
 
     ra95_configure_target(redalert_mac)
+    target_compile_definitions(redalert_mac PRIVATE RA_GAME_RUNTIME)
 
     target_link_libraries(redalert_mac PRIVATE
         PkgConfig::SDL2
@@ -38,6 +39,7 @@ elseif(UNIX)
     ra95_configure_target(redalert_linux)
 
     target_compile_definitions(redalert_linux PRIVATE
+        RA_GAME_RUNTIME
         RA_LINUX
     )
 
