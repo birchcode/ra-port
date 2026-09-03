@@ -18,7 +18,7 @@
 #ifdef WINSOCK_IPX
 
 #include "WSProto.h"
-#include "WSPIPX.h"
+#include "WSPUDP.h"
 
 #else	//WINSOCK_IPX
 
@@ -941,6 +941,7 @@ int IPXManagerClass::Service(void)
 			temp_address_len = sizeof (temp_address);
 			packetlen = PacketTransport->Read ( temp_receive_buffer, temp_receive_buffer_len, temp_address, temp_address_len );
 			if ( packetlen ) {
+				if (packetlen < (int)sizeof(CommHeaderType)) continue;
 				CurDataBuf = (char*)temp_receive_buffer;
 				address = *((IPXAddressClass*) temp_address);
 
