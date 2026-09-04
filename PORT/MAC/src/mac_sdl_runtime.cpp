@@ -104,6 +104,12 @@ static bool mac_crt_split_requested(void)
 	return value && strcmp(value, "split") == 0;
 }
 
+static int mac_crt_mask_strength(void)
+{
+	char const *value = getenv("RA_CRT_MASK_STRENGTH");
+	return value ? RA_ClampInt(atoi(value), 0, 100) : 0;
+}
+
 static RAAspectViewport mac_calculate_viewport(int source_w, int source_h, int target_w, int target_h)
 {
 	if (mac_crt_env_requested()) {
@@ -547,9 +553,10 @@ static bool mac_prepare_crt_overlay(SDL_Rect destination, int logical_height)
 		return false;
 	}
 	RAAspectViewport viewport = {destination.x, destination.y, destination.w, destination.h};
+	int mask_strength = mac_crt_mask_strength();
 	for (int y = 0; y < output_h; ++y) {
 		for (int x = 0; x < output_w; ++x) {
-			pixels[y * output_w + x] = RA_CRTMaskPixel(x, y, viewport, logical_height);
+			pixels[y * output_w + x] = RA_CRTMaskPixelStrength(x, y, viewport, logical_height, mask_strength);
 		}
 	}
 	MacCRTTexture = SDL_CreateTexture(MacRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, output_w, output_h);

@@ -20,5 +20,6 @@ int main(void)
 	if (expect(RA_CRTMaskPixel(128, 0, viewport, 400), 0xFFF1ECECU, "soft beam edge and red phosphor")) return 1;
 	if (expect(RA_CRTMaskPixel(129, 0, viewport, 400), 0xFFECF1ECU, "stationary green phosphor phase")) return 1;
 	if (expect(RA_CRTMaskPixel(128, 2, viewport, 400), 0xFFFFFAFAU, "beam center remains bright")) return 1;
+	if (expect(RA_CRTMaskPixelStrength(128, 2, viewport, 400, 70), 0xFFFFECECU, "strong mask exposes RGB phosphors")) return 1;
 	return 0;
 }
