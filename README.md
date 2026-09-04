@@ -318,6 +318,7 @@ RA_FULLSCREEN=1 RA_WIDESCREEN=1 RA_CRT=1 scripts/run_linux_dev.sh
 ```
 
 CRT mode displays the original 640x400 image at its intended 4:3 monitor aspect. For an A/B comparison, add `RA_CRT_DEBUG=split`; the left half remains clean and the right half receives the CRT treatment.
+Set `RA_CRT_MASK_STRENGTH=0..100` to calibrate phosphor visibility for the monitor; the restrained default is `0`.
 
 ## Tests
 

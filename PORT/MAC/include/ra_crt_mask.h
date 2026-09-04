@@ -13,7 +13,12 @@ static inline unsigned int RA_CRTBloomPixel(unsigned int argb)
 	return (alpha << 24) | (red << 16) | (green << 8) | blue;
 }
 
-static inline unsigned int RA_CRTMaskPixel(int x, int y, RAAspectViewport viewport, int logical_height)
+static inline unsigned int RA_CRTMaskPixelStrength(
+	int x,
+	int y,
+	RAAspectViewport viewport,
+	int logical_height,
+	int mask_strength)
 {
 	if (logical_height <= 0 || x < viewport.x || x >= viewport.x + viewport.w ||
 		y < viewport.y || y >= viewport.y + viewport.h) {
@@ -23,7 +28,8 @@ static inline unsigned int RA_CRTMaskPixel(int x, int y, RAAspectViewport viewpo
 	int phase = (int)(((long long)(y - viewport.y) * logical_height * 256) / viewport.h) & 255;
 	int distance = phase > 128 ? phase - 128 : 128 - phase;
 	int scan = 255 - (distance * distance * 14 / (128 * 128));
-	int dim = scan * 250 / 255;
+	int loss = 5 + RA_ClampInt(mask_strength, 0, 100) * 20 / 100;
+	int dim = scan * (255 - loss) / 255;
 	int red = dim;
 	int green = dim;
 	int blue = dim;
@@ -33,6 +39,11 @@ static inline unsigned int RA_CRTMaskPixel(int x, int y, RAAspectViewport viewpo
 		default: blue = scan; break;
 	}
 	return 0xFF000000U | ((unsigned int)red << 16) | ((unsigned int)green << 8) | (unsigned int)blue;
+}
+
+static inline unsigned int RA_CRTMaskPixel(int x, int y, RAAspectViewport viewport, int logical_height)
+{
+	return RA_CRTMaskPixelStrength(x, y, viewport, logical_height, 0);
 }
 
 #endif
