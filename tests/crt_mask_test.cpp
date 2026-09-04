@@ -13,9 +13,12 @@ static int expect(unsigned int actual, unsigned int expected, char const *messag
 
 int main(void)
 {
+	if (expect(RA_CRTBloomPixel(0xFF808080U), 0x00808080U, "ordinary terrain does not bloom")) return 1;
+	if (expect(RA_CRTBloomPixel(0xFFFFFFFFU), 0x07FFFFFFU, "only highlights bloom subtly")) return 1;
 	RAAspectViewport viewport = {128, 0, 2304, 1440};
 	if (expect(RA_CRTMaskPixel(0, 0, viewport, 400), 0xFFFFFFFFU, "pillarbox remains unchanged")) return 1;
-	if (expect(RA_CRTMaskPixel(128, 0, viewport, 400), 0xFFE0D1D1U, "scanline edge and red phosphor")) return 1;
-	if (expect(RA_CRTMaskPixel(129, 0, viewport, 400), 0xFFD1E0D1U, "green phosphor phase")) return 1;
+	if (expect(RA_CRTMaskPixel(128, 0, viewport, 400), 0xFFF1ECECU, "soft beam edge and red phosphor")) return 1;
+	if (expect(RA_CRTMaskPixel(129, 0, viewport, 400), 0xFFECF1ECU, "stationary green phosphor phase")) return 1;
+	if (expect(RA_CRTMaskPixel(128, 2, viewport, 400), 0xFFFFFAFAU, "beam center remains bright")) return 1;
 	return 0;
 }

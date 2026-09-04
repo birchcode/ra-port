@@ -16,6 +16,13 @@ int main(void)
 	if (expect_int(RA_WidescreenWidth(640, 400, 1920, 1080), 712, "16:9 logical width")) return 1;
 	if (expect_int(RA_WidescreenWidth(640, 400, 3440, 1440), 952, "ultrawide logical width")) return 1;
 	if (expect_int(RA_WidescreenWidth(640, 400, 1280, 1024), 640, "narrow displays keep base width")) return 1;
+	if (expect_int(RA_WidescreenWidthForPixelAspect(640, 400, 2560, 1440, 5, 6), 856, "CRT 16:9 logical width")) return 1;
+
+	RAAspectViewport crt = RA_CalculatePixelAspectViewport(640, 400, 2560, 1440, 5, 6);
+	if (expect_int(crt.x, 320, "CRT 4:3 viewport x")) return 1;
+	if (expect_int(crt.y, 0, "CRT 4:3 viewport y")) return 1;
+	if (expect_int(crt.w, 1920, "CRT 4:3 viewport width")) return 1;
+	if (expect_int(crt.h, 1440, "CRT 4:3 viewport height")) return 1;
 
 	RAAspectViewport tablet = RA_CalculateAspectViewport(640, 400, 2550, 1490);
 	if (expect_int(tablet.x, 83, "wide tablet viewport x")) return 1;

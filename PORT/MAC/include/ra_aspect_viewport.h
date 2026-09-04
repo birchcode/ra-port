@@ -15,17 +15,31 @@ static inline int RA_ClampInt(int value, int min_value, int max_value)
 	return value;
 }
 
-static inline int RA_WidescreenWidth(int base_width, int base_height, int display_width, int display_height)
+static inline int RA_WidescreenWidthForPixelAspect(
+	int base_width,
+	int base_height,
+	int display_width,
+	int display_height,
+	int pixel_width,
+	int pixel_height)
 {
-	if (base_width <= 0 || base_height <= 0 || display_width <= 0 || display_height <= 0) {
+	if (base_width <= 0 || base_height <= 0 || display_width <= 0 || display_height <= 0 ||
+		pixel_width <= 0 || pixel_height <= 0) {
 		return base_width;
 	}
-	int width = (int)(((long long)base_height * display_width + (display_height / 2)) / display_height);
+	long long numerator = (long long)base_height * display_width * pixel_height;
+	long long denominator = (long long)display_height * pixel_width;
+	int width = (int)((numerator + (denominator / 2)) / denominator);
 	if (width <= base_width) return base_width;
 	int const sidebar_width = 160;
 	int const cell_width = 24;
 	int cells = (width - sidebar_width + (cell_width / 2)) / cell_width;
 	return sidebar_width + (cells * cell_width);
+}
+
+static inline int RA_WidescreenWidth(int base_width, int base_height, int display_width, int display_height)
+{
+	return RA_WidescreenWidthForPixelAspect(base_width, base_height, display_width, display_height, 1, 1);
 }
 
 static inline RAAspectViewport RA_CalculateAspectViewport(int source_w, int source_h, int target_w, int target_h)
@@ -49,6 +63,21 @@ static inline RAAspectViewport RA_CalculateAspectViewport(int source_w, int sour
 		viewport.y = (target_h - viewport.h) / 2;
 	}
 	return viewport;
+}
+
+static inline RAAspectViewport RA_CalculatePixelAspectViewport(
+	int source_w,
+	int source_h,
+	int target_w,
+	int target_h,
+	int pixel_width,
+	int pixel_height)
+{
+	if (pixel_width <= 0 || pixel_height <= 0) {
+		RAAspectViewport viewport = {0, 0, 0, 0};
+		return viewport;
+	}
+	return RA_CalculateAspectViewport(source_w * pixel_width, source_h * pixel_height, target_w, target_h);
 }
 
 static inline int RA_MapViewportPoint(
