@@ -29,6 +29,7 @@ static bool MacSDLReady = false;
 static bool MacQuitRequested = false;
 static bool MacFullscreen = false;
 static bool MacPresenting = false;
+static bool MacCRTCaptured = false;
 static bool MacLegacyViewport = false;
 static SDL_threadID MacMainThread = 0;
 static uint32_t MacPalette[256];
@@ -988,6 +989,17 @@ void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pit
 			SDL_SetRenderDrawColor(MacRenderer, 255, 255, 255, 255);
 			SDL_RenderDrawLine(MacRenderer, split.x, 0, split.x, split.h - 1);
 		}
+	}
+	char const *capture_path = getenv("RA_CRT_CAPTURE");
+	if (capture_path && capture_path[0] && !MacCRTCaptured && SDL_GetTicks() >= 5000) {
+		int output_w = 0;
+		int output_h = 0;
+		SDL_GetRendererOutputSize(MacRenderer, &output_w, &output_h);
+		SDL_Surface *capture = SDL_CreateRGBSurfaceWithFormat(0, output_w, output_h, 32, SDL_PIXELFORMAT_ARGB8888);
+		if (capture && SDL_RenderReadPixels(MacRenderer, 0, SDL_PIXELFORMAT_ARGB8888, capture->pixels, capture->pitch) == 0) {
+			MacCRTCaptured = SDL_SaveBMP(capture, capture_path) == 0;
+		}
+		if (capture) SDL_FreeSurface(capture);
 	}
 	SDL_RenderPresent(MacRenderer);
 	MacPresenting = false;
