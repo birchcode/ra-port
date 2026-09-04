@@ -932,10 +932,16 @@ void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pit
 	for (int y = 0; y < height; ++y) {
 		unsigned char const *src = pixels + (y * pitch);
 		uint32_t *dst = MacFrame + (y * width);
-		uint32_t *bloom = MacCRTBloomTexture ? MacCRTBloomFrame + (y * width) : 0;
-		for (int x = 0; x < width; ++x) {
-			dst[x] = MacPalette[src[x]];
-			if (bloom) bloom[x] = RA_CRTBloomPixel(dst[x]);
+		if (MacCRTBloomTexture) {
+			uint32_t *bloom = MacCRTBloomFrame + (y * width);
+			for (int x = 0; x < width; ++x) {
+				dst[x] = MacPalette[src[x]];
+				bloom[x] = RA_CRTBloomPixel(dst[x]);
+			}
+		} else {
+			for (int x = 0; x < width; ++x) {
+				dst[x] = MacPalette[src[x]];
+			}
 		}
 	}
 
