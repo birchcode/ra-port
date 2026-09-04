@@ -26,9 +26,11 @@ static inline unsigned int RA_CRTMaskPixelStrength(
 	}
 
 	int phase = (int)(((long long)(y - viewport.y) * logical_height * 256) / viewport.h) & 255;
+	int strength = RA_ClampInt(mask_strength, 0, 100);
 	int distance = phase > 128 ? phase - 128 : 128 - phase;
-	int scan = 255 - (distance * distance * 14 / (128 * 128));
-	int loss = 5 + RA_ClampInt(mask_strength, 0, 100) * 20 / 100;
+	int scan_loss = 14 + strength;
+	int scan = 255 - (distance * distance * scan_loss / (128 * 128));
+	int loss = 5 + strength * 250 / 100;
 	int dim = scan * (255 - loss) / 255;
 	int red = dim;
 	int green = dim;
