@@ -16,7 +16,9 @@ static SDL_Window *MacWindow = 0;
 static SDL_Renderer *MacRenderer = 0;
 static SDL_Texture *MacTexture = 0;
 static SDL_Texture *MacCRTTexture = 0;
+static SDL_Texture *MacCRTBloomTexture = 0;
 static uint32_t *MacFrame = 0;
+static uint32_t *MacCRTBloomFrame = 0;
 static int MacFramePixels = 0;
 static int MacWidth = 0;
 static int MacHeight = 0;
@@ -96,6 +98,20 @@ static bool mac_crt_env_requested(void)
 		strcmp(value, "no") != 0 && strcmp(value, "NO") != 0;
 }
 
+static bool mac_crt_split_requested(void)
+{
+	char const *value = getenv("RA_CRT_DEBUG");
+	return value && strcmp(value, "split") == 0;
+}
+
+static RAAspectViewport mac_calculate_viewport(int source_w, int source_h, int target_w, int target_h)
+{
+	if (mac_crt_env_requested()) {
+		return RA_CalculatePixelAspectViewport(source_w, source_h, target_w, target_h, 5, 6);
+	}
+	return RA_CalculateAspectViewport(source_w, source_h, target_w, target_h);
+}
+
 static LPARAM mac_pack_xy(int x, int y)
 {
 	return (LPARAM)(((y & 0xFFFF) << 16) | (x & 0xFFFF));
@@ -113,7 +129,7 @@ static RAAspectViewport mac_window_viewport(void)
 	if (MacWindow) {
 		SDL_GetWindowSize(MacWindow, &window_w, &window_h);
 	}
-	return RA_CalculateAspectViewport(mac_content_width(), MacHeight, window_w, window_h);
+	return mac_calculate_viewport(mac_content_width(), MacHeight, window_w, window_h);
 }
 
 static RAAspectViewport mac_renderer_viewport(int source_w, int source_h)
@@ -123,7 +139,7 @@ static RAAspectViewport mac_renderer_viewport(int source_w, int source_h)
 	if (MacRenderer) {
 		SDL_GetRendererOutputSize(MacRenderer, &output_w, &output_h);
 	}
-	return RA_CalculateAspectViewport(source_w, source_h, output_w, output_h);
+	return mac_calculate_viewport(source_w, source_h, output_w, output_h);
 }
 
 static bool mac_to_logical_point(int *x, int *y)
@@ -434,7 +450,7 @@ static bool mobile_logical_point(float normalized_x, float normalized_y, int *lo
 	screen_y = RA_ClampInt(screen_y, 0, window_h - 1);
 
 	int content_width = mac_content_width();
-	RAAspectViewport viewport = RA_CalculateAspectViewport(content_width, MacHeight, window_w, window_h);
+	RAAspectViewport viewport = mac_calculate_viewport(content_width, MacHeight, window_w, window_h);
 	return RA_MapViewportPoint(viewport, content_width, MacHeight, screen_x, screen_y, logical_x, logical_y) != 0;
 }
 
@@ -485,6 +501,10 @@ static void mobile_maybe_send_long_press(void)
 
 static void mac_destroy_video_objects(void)
 {
+	if (MacCRTBloomTexture) {
+		SDL_DestroyTexture(MacCRTBloomTexture);
+		MacCRTBloomTexture = 0;
+	}
 	if (MacCRTTexture) {
 		SDL_DestroyTexture(MacCRTTexture);
 		MacCRTTexture = 0;
@@ -601,9 +621,11 @@ static bool mac_sdl_set_mode(int *width, int *height, bool allow_widescreen)
 	if (allow_widescreen && mac_widescreen_env_requested() && *width == 640 && *height == 400) {
 		SDL_DisplayMode display;
 		if (SDL_GetDesktopDisplayMode(0, &display) == 0) {
-			*width = RA_WidescreenWidth(*width, *height, display.w, display.h);
+			*width = mac_crt_env_requested()
+				? RA_WidescreenWidthForPixelAspect(*width, *height, display.w, display.h, 5, 6)
+				: RA_WidescreenWidth(*width, *height, display.w, display.h);
 			MacLegacyViewport = *width > 640;
-			SDL_Log("Red Alert widescreen mode=%dx%d desktop=%dx%d", *width, *height, display.w, display.h);
+			SDL_Log("Red Alert widescreen mode=%dx%d desktop=%dx%d@%dHz", *width, *height, display.w, display.h, display.refresh_rate);
 		}
 	}
 	int selected_width = *width;
@@ -655,7 +677,11 @@ static bool mac_sdl_set_mode(int *width, int *height, bool allow_widescreen)
 	}
 	SDL_SetRenderDrawColor(MacRenderer, 0, 0, 0, 255);
 	MacTexture = SDL_CreateTexture(MacRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, selected_width, selected_height);
-	return MacTexture != 0;
+	if (mac_crt_env_requested()) {
+		MacCRTBloomTexture = SDL_CreateTexture(MacRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, selected_width, selected_height);
+		if (MacCRTBloomTexture) SDL_SetTextureBlendMode(MacCRTBloomTexture, SDL_BLENDMODE_ADD);
+	}
+	return MacTexture != 0 && (!mac_crt_env_requested() || MacCRTBloomTexture != 0);
 }
 
 bool MacSDL_SetMode(int width, int height)
@@ -892,18 +918,29 @@ void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pit
 			return;
 		}
 		MacFrame = new_frame;
+		if (MacCRTBloomTexture) {
+			uint32_t *new_bloom = (uint32_t *)realloc(MacCRTBloomFrame, (size_t)needed * sizeof(uint32_t));
+			if (!new_bloom) {
+				MacPresenting = false;
+				return;
+			}
+			MacCRTBloomFrame = new_bloom;
+		}
 		MacFramePixels = needed;
 	}
 
 	for (int y = 0; y < height; ++y) {
 		unsigned char const *src = pixels + (y * pitch);
 		uint32_t *dst = MacFrame + (y * width);
+		uint32_t *bloom = MacCRTBloomTexture ? MacCRTBloomFrame + (y * width) : 0;
 		for (int x = 0; x < width; ++x) {
 			dst[x] = MacPalette[src[x]];
+			if (bloom) bloom[x] = RA_CRTBloomPixel(dst[x]);
 		}
 	}
 
 	SDL_UpdateTexture(MacTexture, 0, MacFrame, width * (int)sizeof(uint32_t));
+	if (MacCRTBloomTexture) SDL_UpdateTexture(MacCRTBloomTexture, 0, MacCRTBloomFrame, width * (int)sizeof(uint32_t));
 	int content_width = mac_content_width();
 	RAAspectViewport viewport = mac_renderer_viewport(content_width, height);
 	SDL_Rect source = {0, 0, content_width, height};
@@ -920,7 +957,20 @@ void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pit
 	SDL_RenderClear(MacRenderer);
 	SDL_RenderCopy(MacRenderer, MacTexture, &source, &destination);
 	if (mac_crt_env_requested() && mac_prepare_crt_overlay(destination, height)) {
+		SDL_Rect split = {0, 0, 0, 0};
+		if (mac_crt_split_requested()) {
+			SDL_GetRendererOutputSize(MacRenderer, &split.w, &split.h);
+			split.x = split.w / 2;
+			split.w -= split.x;
+			SDL_RenderSetClipRect(MacRenderer, &split);
+		}
+		SDL_Rect bloom_destination = destination;
+		bloom_destination.x--;
+		SDL_RenderCopy(MacRenderer, MacCRTBloomTexture, &source, &bloom_destination);
+		bloom_destination.x += 2;
+		SDL_RenderCopy(MacRenderer, MacCRTBloomTexture, &source, &bloom_destination);
 		SDL_RenderCopy(MacRenderer, MacCRTTexture, 0, 0);
+		SDL_RenderSetClipRect(MacRenderer, 0);
 	}
 	SDL_RenderPresent(MacRenderer);
 	MacPresenting = false;

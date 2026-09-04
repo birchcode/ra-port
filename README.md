@@ -317,6 +317,8 @@ Add the optional VGA CRT phosphor and scanline treatment:
 RA_FULLSCREEN=1 RA_WIDESCREEN=1 RA_CRT=1 scripts/run_linux_dev.sh
 ```
 
+CRT mode displays the original 640x400 image at its intended 4:3 monitor aspect. For an A/B comparison, add `RA_CRT_DEBUG=split`; the left half remains clean and the right half receives the CRT treatment.
+
 ## Tests
 
 Run the source-level tests and script checks:
