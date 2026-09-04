@@ -18,7 +18,7 @@ static inline int RA_CRTBrightnessBoostAlpha(int mask_strength)
 	int strength = RA_ClampInt(mask_strength, 0, 100);
 	int inactive = 250 - strength * 250 / 100;
 	int average = 255 + 2 * inactive;
-	return (765 * 255 / average) - 255;
+	return RA_ClampInt((765 * 255 / average) - 255 + strength * 40 / 100, 0, 510);
 }
 
 static inline unsigned int RA_CRTMaskPixelStrength(
@@ -33,11 +33,14 @@ static inline unsigned int RA_CRTMaskPixelStrength(
 		return 0xFFFFFFFFU;
 	}
 
-	int phase = (int)(((long long)(y - viewport.y) * logical_height * 256) / viewport.h) & 255;
+	int triad = (x - viewport.x) / 3;
+	int phase = ((int)(((long long)(y - viewport.y) * logical_height * 256) / viewport.h) +
+		((triad & 1) ? 128 : 0)) & 255;
 	int strength = RA_ClampInt(mask_strength, 0, 100);
 	int distance = phase > 128 ? phase - 128 : 128 - phase;
-	int scan_loss = 14 + strength;
+	int scan_loss = 8 + strength / 3;
 	int scan = 255 - (distance * distance * scan_loss / (128 * 128));
+	if (distance > 96) scan -= 8 + strength / 5;
 	int loss = 5 + strength * 250 / 100;
 	int dim = scan * (255 - loss) / 255;
 	int red = dim;
