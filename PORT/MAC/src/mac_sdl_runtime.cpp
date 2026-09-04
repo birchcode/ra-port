@@ -978,6 +978,13 @@ void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pit
 			split.w -= split.x;
 			SDL_RenderSetClipRect(MacRenderer, &split);
 		}
+		int mask_strength = mac_crt_mask_strength();
+		if (mask_strength >= 50) {
+			SDL_SetTextureBlendMode(MacTexture, SDL_BLENDMODE_ADD);
+			SDL_RenderCopy(MacRenderer, MacTexture, &source, &destination);
+			if (mask_strength >= 90) SDL_RenderCopy(MacRenderer, MacTexture, &source, &destination);
+			SDL_SetTextureBlendMode(MacTexture, SDL_BLENDMODE_NONE);
+		}
 		SDL_Rect bloom_destination = destination;
 		bloom_destination.x--;
 		SDL_RenderCopy(MacRenderer, MacCRTBloomTexture, &source, &bloom_destination);
