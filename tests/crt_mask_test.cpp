@@ -13,6 +13,8 @@ static int expect(unsigned int actual, unsigned int expected, char const *messag
 
 int main(void)
 {
+	if (expect((unsigned int)RA_CRTBrightnessBoostAlpha(50), 131U, "medium mask receives partial brightness compensation")) return 1;
+	if (expect((unsigned int)RA_CRTBrightnessBoostAlpha(100), 510U, "full mask receives two brightness passes")) return 1;
 	if (expect(RA_CRTBloomPixel(0xFF808080U), 0x00808080U, "ordinary terrain does not bloom")) return 1;
 	if (expect(RA_CRTBloomPixel(0xFFFFFFFFU), 0x07FFFFFFU, "only highlights bloom subtly")) return 1;
 	RAAspectViewport viewport = {128, 0, 2304, 1440};

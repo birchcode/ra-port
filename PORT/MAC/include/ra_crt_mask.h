@@ -13,6 +13,14 @@ static inline unsigned int RA_CRTBloomPixel(unsigned int argb)
 	return (alpha << 24) | (red << 16) | (green << 8) | blue;
 }
 
+static inline int RA_CRTBrightnessBoostAlpha(int mask_strength)
+{
+	int strength = RA_ClampInt(mask_strength, 0, 100);
+	int inactive = 250 - strength * 250 / 100;
+	int average = 255 + 2 * inactive;
+	return (765 * 255 / average) - 255;
+}
+
 static inline unsigned int RA_CRTMaskPixelStrength(
 	int x,
 	int y,
