@@ -108,7 +108,7 @@ static bool mac_crt_split_requested(void)
 static int mac_crt_mask_strength(void)
 {
 	char const *value = getenv("RA_CRT_MASK_STRENGTH");
-	return value ? RA_ClampInt(atoi(value), 0, 100) : 0;
+	return value ? RA_ClampInt(atoi(value), 0, 100) : 25;
 }
 
 static RAAspectViewport mac_calculate_viewport(int source_w, int source_h, int target_w, int target_h)
