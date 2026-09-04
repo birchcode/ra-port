@@ -977,6 +977,10 @@ void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pit
 		SDL_RenderCopy(MacRenderer, MacCRTBloomTexture, &source, &bloom_destination);
 		SDL_RenderCopy(MacRenderer, MacCRTTexture, 0, 0);
 		SDL_RenderSetClipRect(MacRenderer, 0);
+		if (mac_crt_split_requested()) {
+			SDL_SetRenderDrawColor(MacRenderer, 255, 255, 255, 255);
+			SDL_RenderDrawLine(MacRenderer, split.x, 0, split.x, split.h - 1);
+		}
 	}
 	SDL_RenderPresent(MacRenderer);
 	MacPresenting = false;
