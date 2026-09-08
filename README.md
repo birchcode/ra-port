@@ -36,7 +36,9 @@ This is an unofficial source port based on the source code Electronic Arts relea
 | :white_check_mark: | Videos | Videos are playing with sound. |
 | :white_check_mark: | Controls and audio | macOS keyboard/mouse plus Android and iOS touch/audio work. |
 | :white_check_mark: | LAN multiplayer | macOS and Linux players can host and join over local UDP. |
-| :x: | Internet multiplayer | Not wired up yet. |
+| :x: | Internet multiplayer | Planned: private invite-code “dial-up” sessions; see [project plan](docs/PROJECT_PLAN.md). |
+| :white_check_mark: | Fullscreen and widescreen | Desktop fullscreen toggle, wider battlefield, and smoother presentation pacing. |
+| :white_check_mark: | Optional CRT display | Desktop OpenGL shader; enabled with `RA_CRT=1`. |
 | :x: | Launcher/setup tools | Not ported. |
 | :x: | Expansion packs | Not a focus yet. |
 | :x: | `.app` bundle | Not packaged yet; the build creates a normal macOS executable. |
@@ -63,7 +65,7 @@ On Ubuntu, install the Linux build tools and build the port:
 
 ```sh
 sudo apt-get update
-sudo apt-get install -y build-essential cmake ninja-build pkg-config libsdl2-dev
+sudo apt-get install -y build-essential cmake ninja-build pkg-config libsdl2-dev libgl1-mesa-dev
 cmake -S . -B build-linux -G Ninja
 cmake --build build-linux --target redalert_linux -j 8
 ```
@@ -142,7 +144,7 @@ Install Ubuntu build dependencies:
 
 ```sh
 sudo apt-get update
-sudo apt-get install -y build-essential cmake ninja-build pkg-config libsdl2-dev
+sudo apt-get install -y build-essential cmake ninja-build pkg-config libsdl2-dev libgl1-mesa-dev
 ```
 
 Configure and build:
@@ -317,7 +319,7 @@ Add the optional VGA CRT phosphor and scanline treatment:
 RA_FULLSCREEN=1 RA_WIDESCREEN=1 RA_CRT=1 scripts/run_linux_dev.sh
 ```
 
-CRT mode displays the original 640x400 image at its intended 4:3 monitor aspect. For an A/B comparison, add `RA_CRT_DEBUG=split`; the left half remains clean and the right half receives the CRT treatment.
+CRT mode uses a desktop OpenGL 2.1 compatibility shader; mobile keeps its SDL renderer. CRT mode displays the original 640x400 image at its intended 4:3 monitor aspect. For an A/B comparison, add `RA_CRT_DEBUG=split`; the left half remains clean and the right half receives the CRT treatment.
 Set `RA_CRT_MASK_STRENGTH=0..100` to calibrate phosphor visibility for the monitor; the legibility-balanced default is `25`, while `100` exposes fully separated RGB elements for close inspection.
 
 ## Tests
@@ -367,7 +369,7 @@ tests/run_script_tests.sh
 
 The port is intentionally conservative: keep original source layout and behavior recognizable, and prefer small platform-specific support files over broad rewrites. Good next areas are macOS `.app` packaging, Linux packaging, Android/iOS release packaging, physical device validation, Intel macOS validation, save/load hardening, expansion support, CI coverage, and mobile input/UI polish.
 
-Internet multiplayer is out of scope for the current milestone.
+The next priorities are desktop camera controls, easier play setup, and a private internet multiplayer prototype. See [project state and ordered plan](docs/PROJECT_PLAN.md) for acceptance checks and remaining validation.
 
 ## License And Notice
 

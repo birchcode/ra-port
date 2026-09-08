@@ -9,6 +9,7 @@ set(CMAKE_CXX_EXTENSIONS ON)
 
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
+find_package(OpenGL REQUIRED)
 pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
 
 include(cmake/ra95_common.cmake)
@@ -32,6 +33,7 @@ if(APPLE)
 
     target_link_libraries(redalert_mac PRIVATE
         PkgConfig::SDL2
+        OpenGL::GL
         Threads::Threads
     )
 elseif(UNIX)
@@ -54,6 +56,7 @@ elseif(UNIX)
 
     target_link_libraries(redalert_linux PRIVATE
         PkgConfig::SDL2
+        OpenGL::GL
         Threads::Threads
     )
 else()

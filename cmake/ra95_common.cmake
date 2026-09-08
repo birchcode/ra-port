@@ -56,6 +56,7 @@ list(TRANSFORM RA95_SUPPORT_SOURCES PREPEND "${RA95_REPO_ROOT}/")
 set(RA95_PLATFORM_SDL_SOURCES
     "${RA95_REPO_ROOT}/PORT/MAC/src/mac_audio_stub.cpp"
     "${RA95_REPO_ROOT}/PORT/MAC/src/mac_sdl_runtime.cpp"
+    "${RA95_REPO_ROOT}/PORT/MAC/src/ra_crt_gl.cpp"
     "${RA95_REPO_ROOT}/PORT/MAC/src/mac_timer.cpp"
     "${RA95_REPO_ROOT}/PORT/MAC/src/mac_vqa.cpp"
     "${RA95_REPO_ROOT}/PORT/MAC/src/dos_compat.cpp"

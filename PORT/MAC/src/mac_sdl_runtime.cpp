@@ -9,22 +9,16 @@
 #include "mobile_pan.h"
 #include "mobile_touch_gesture.h"
 #include "ra_aspect_viewport.h"
-#include "ra_crt_mask.h"
+#include "ra_crt_gl.h"
 #include <mmsystem.h>
 
 static SDL_Window *MacWindow = 0;
 static SDL_Renderer *MacRenderer = 0;
 static SDL_Texture *MacTexture = 0;
-static SDL_Texture *MacCRTTexture = 0;
-static SDL_Texture *MacCRTBloomTexture = 0;
 static uint32_t *MacFrame = 0;
-static uint32_t *MacCRTBloomFrame = 0;
 static int MacFramePixels = 0;
 static int MacWidth = 0;
 static int MacHeight = 0;
-static int MacCRTWidth = 0;
-static int MacCRTHeight = 0;
-static SDL_Rect MacCRTViewport = {0, 0, 0, 0};
 static bool MacSDLReady = false;
 static bool MacQuitRequested = false;
 static bool MacFullscreen = false;
@@ -91,12 +85,16 @@ static bool mac_widescreen_env_requested(void)
 
 static bool mac_crt_env_requested(void)
 {
+#if defined(RA_MOBILE_TOUCH)
+	return false;
+#else
 	char const *value = getenv("RA_CRT");
 	if (!value || !value[0]) {
 		return false;
 	}
 	return strcmp(value, "0") != 0 && strcmp(value, "false") != 0 && strcmp(value, "FALSE") != 0 &&
 		strcmp(value, "no") != 0 && strcmp(value, "NO") != 0;
+#endif
 }
 
 static bool mac_crt_split_requested(void)
@@ -109,6 +107,30 @@ static int mac_crt_mask_strength(void)
 {
 	char const *value = getenv("RA_CRT_MASK_STRENGTH");
 	return value ? RA_ClampInt(atoi(value), 0, 100) : 25;
+}
+
+static bool mac_crt_subpixel_mask_requested(void)
+{
+	char const *value = getenv("RA_CRT_MASK");
+	return value && strcmp(value, "subpixel") == 0;
+}
+
+static bool mac_crt_bgr_panel_requested(void)
+{
+	char const *value = getenv("RA_CRT_PANEL");
+	return value && strcmp(value, "bgr") == 0;
+}
+
+static int mac_crt_test_pattern(void)
+{
+	char const *value = getenv("RA_CRT_TEST");
+	if (!value) return 0;
+	if (strcmp(value, "white") == 0) return 1;
+	if (strcmp(value, "gray") == 0 || strcmp(value, "grey") == 0) return 2;
+	if (strcmp(value, "red") == 0) return 3;
+	if (strcmp(value, "green") == 0) return 4;
+	if (strcmp(value, "blue") == 0) return 5;
+	return 0;
 }
 
 static RAAspectViewport mac_calculate_viewport(int source_w, int source_h, int target_w, int target_h)
@@ -143,7 +165,9 @@ static RAAspectViewport mac_renderer_viewport(int source_w, int source_h)
 {
 	int output_w = source_w;
 	int output_h = source_h;
-	if (MacRenderer) {
+	if (RA_CRTGL_IsReady()) {
+		RA_CRTGL_GetOutputSize(&output_w, &output_h);
+	} else if (MacRenderer) {
 		SDL_GetRendererOutputSize(MacRenderer, &output_w, &output_h);
 	}
 	return mac_calculate_viewport(source_w, source_h, output_w, output_h);
@@ -508,16 +532,7 @@ static void mobile_maybe_send_long_press(void)
 
 static void mac_destroy_video_objects(void)
 {
-	if (MacCRTBloomTexture) {
-		SDL_DestroyTexture(MacCRTBloomTexture);
-		MacCRTBloomTexture = 0;
-	}
-	if (MacCRTTexture) {
-		SDL_DestroyTexture(MacCRTTexture);
-		MacCRTTexture = 0;
-	}
-	MacCRTWidth = 0;
-	MacCRTHeight = 0;
+	RA_CRTGL_Shutdown();
 	if (MacTexture) {
 		SDL_DestroyTexture(MacTexture);
 		MacTexture = 0;
@@ -530,46 +545,6 @@ static void mac_destroy_video_objects(void)
 		SDL_DestroyWindow(MacWindow);
 		MacWindow = 0;
 	}
-}
-
-static bool mac_prepare_crt_overlay(SDL_Rect destination, int logical_height)
-{
-	int output_w = 0;
-	int output_h = 0;
-	if (SDL_GetRendererOutputSize(MacRenderer, &output_w, &output_h) != 0 || output_w <= 0 || output_h <= 0) {
-		return false;
-	}
-	if (MacCRTTexture && MacCRTWidth == output_w && MacCRTHeight == output_h &&
-		MacCRTViewport.x == destination.x && MacCRTViewport.y == destination.y &&
-		MacCRTViewport.w == destination.w && MacCRTViewport.h == destination.h) {
-		return true;
-	}
-
-	if (MacCRTTexture) {
-		SDL_DestroyTexture(MacCRTTexture);
-		MacCRTTexture = 0;
-	}
-	uint32_t *pixels = (uint32_t *)malloc((size_t)output_w * output_h * sizeof(uint32_t));
-	if (!pixels) {
-		return false;
-	}
-	RAAspectViewport viewport = {destination.x, destination.y, destination.w, destination.h};
-	int mask_strength = mac_crt_mask_strength();
-	for (int y = 0; y < output_h; ++y) {
-		for (int x = 0; x < output_w; ++x) {
-			pixels[y * output_w + x] = RA_CRTMaskPixelStrength(x, y, viewport, logical_height, mask_strength);
-		}
-	}
-	MacCRTTexture = SDL_CreateTexture(MacRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, output_w, output_h);
-	if (MacCRTTexture) {
-		SDL_UpdateTexture(MacCRTTexture, 0, pixels, output_w * (int)sizeof(uint32_t));
-		SDL_SetTextureBlendMode(MacCRTTexture, SDL_BLENDMODE_MOD);
-		MacCRTWidth = output_w;
-		MacCRTHeight = output_h;
-		MacCRTViewport = destination;
-	}
-	free(pixels);
-	return MacCRTTexture != 0;
 }
 
 bool MacSDL_SetFullscreen(bool enabled)
@@ -654,6 +629,13 @@ static bool mac_sdl_set_mode(int *width, int *height, bool allow_widescreen)
 		MacFullscreen = true;
 	}
 	Uint32 window_flags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
+	if (mac_crt_env_requested()) {
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+		window_flags |= SDL_WINDOW_OPENGL;
+	}
 #if defined(RA_MOBILE_TOUCH)
 	window_flags |= SDL_WINDOW_BORDERLESS;
 #endif
@@ -668,6 +650,13 @@ static bool mac_sdl_set_mode(int *width, int *height, bool allow_widescreen)
 		return false;
 	}
 	SDL_ShowCursor(SDL_DISABLE);
+	if (mac_crt_env_requested()) {
+		if (!RA_CRTGL_Init(MacWindow)) {
+			mac_destroy_video_objects();
+			return false;
+		}
+		return true;
+	}
 
 	Uint32 renderer_flags = SDL_RENDERER_ACCELERATED;
 	MacRenderer = SDL_CreateRenderer(MacWindow, -1, renderer_flags);
@@ -685,11 +674,7 @@ static bool mac_sdl_set_mode(int *width, int *height, bool allow_widescreen)
 	}
 	SDL_SetRenderDrawColor(MacRenderer, 0, 0, 0, 255);
 	MacTexture = SDL_CreateTexture(MacRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, selected_width, selected_height);
-	if (mac_crt_env_requested()) {
-		MacCRTBloomTexture = SDL_CreateTexture(MacRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, selected_width, selected_height);
-		if (MacCRTBloomTexture) SDL_SetTextureBlendMode(MacCRTBloomTexture, SDL_BLENDMODE_ADD);
-	}
-	return MacTexture != 0 && (!mac_crt_env_requested() || MacCRTBloomTexture != 0);
+	return MacTexture != 0;
 }
 
 bool MacSDL_SetMode(int width, int height)
@@ -913,7 +898,7 @@ void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pit
 
 	MacPresenting = true;
 	mac_sdl_pump_events(false);
-	if (!MacRenderer || !MacTexture) {
+	if (!RA_CRTGL_IsReady() && (!MacRenderer || !MacTexture)) {
 		MacPresenting = false;
 		return;
 	}
@@ -926,35 +911,36 @@ void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pit
 			return;
 		}
 		MacFrame = new_frame;
-		if (MacCRTBloomTexture) {
-			uint32_t *new_bloom = (uint32_t *)realloc(MacCRTBloomFrame, (size_t)needed * sizeof(uint32_t));
-			if (!new_bloom) {
-				MacPresenting = false;
-				return;
-			}
-			MacCRTBloomFrame = new_bloom;
-		}
 		MacFramePixels = needed;
 	}
 
 	for (int y = 0; y < height; ++y) {
 		unsigned char const *src = pixels + (y * pitch);
 		uint32_t *dst = MacFrame + (y * width);
-		if (MacCRTBloomTexture) {
-			uint32_t *bloom = MacCRTBloomFrame + (y * width);
-			for (int x = 0; x < width; ++x) {
-				dst[x] = MacPalette[src[x]];
-				bloom[x] = RA_CRTBloomPixel(dst[x]);
-			}
-		} else {
-			for (int x = 0; x < width; ++x) {
-				dst[x] = MacPalette[src[x]];
-			}
+		for (int x = 0; x < width; ++x) {
+			dst[x] = MacPalette[src[x]];
 		}
 	}
 
+	if (RA_CRTGL_IsReady()) {
+		int content_width = mac_content_width();
+		RAAspectViewport viewport = mac_renderer_viewport(content_width, height);
+		RACRTGLConfig config;
+		config.strength = mac_crt_mask_strength();
+		config.split = mac_crt_split_requested() ? 1 : 0;
+		config.subpixel_mask = mac_crt_subpixel_mask_requested() ? 1 : 0;
+		config.bgr_panel = mac_crt_bgr_panel_requested() ? 1 : 0;
+		config.test_pattern = mac_crt_test_pattern();
+		RA_CRTGL_Present(MacFrame, width, height, content_width, viewport, config);
+		char const *capture_path = getenv("RA_CRT_CAPTURE");
+		if (capture_path && capture_path[0] && !MacCRTCaptured && SDL_GetTicks() >= 5000) {
+			MacCRTCaptured = RA_CRTGL_Capture(capture_path);
+		}
+		MacPresenting = false;
+		return;
+	}
+
 	SDL_UpdateTexture(MacTexture, 0, MacFrame, width * (int)sizeof(uint32_t));
-	if (MacCRTBloomTexture) SDL_UpdateTexture(MacCRTBloomTexture, 0, MacCRTBloomFrame, width * (int)sizeof(uint32_t));
 	int content_width = mac_content_width();
 	RAAspectViewport viewport = mac_renderer_viewport(content_width, height);
 	SDL_Rect source = {0, 0, content_width, height};
@@ -970,50 +956,6 @@ void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pit
 	SDL_SetRenderDrawColor(MacRenderer, 0, 0, 0, 255);
 	SDL_RenderClear(MacRenderer);
 	SDL_RenderCopy(MacRenderer, MacTexture, &source, &destination);
-	if (mac_crt_env_requested() && mac_prepare_crt_overlay(destination, height)) {
-		SDL_Rect split = {0, 0, 0, 0};
-		if (mac_crt_split_requested()) {
-			SDL_GetRendererOutputSize(MacRenderer, &split.w, &split.h);
-			split.x = split.w / 2;
-			split.w -= split.x;
-			SDL_RenderSetClipRect(MacRenderer, &split);
-		}
-		int mask_strength = mac_crt_mask_strength();
-		int boost_alpha = mask_strength > 0 ? RA_CRTBrightnessBoostAlpha(mask_strength) : 0;
-		if (boost_alpha > 0) {
-			SDL_SetTextureBlendMode(MacTexture, SDL_BLENDMODE_ADD);
-			SDL_SetTextureAlphaMod(MacTexture, boost_alpha > 255 ? 255 : boost_alpha);
-			SDL_RenderCopy(MacRenderer, MacTexture, &source, &destination);
-			if (boost_alpha > 255) {
-				SDL_SetTextureAlphaMod(MacTexture, boost_alpha - 255);
-				SDL_RenderCopy(MacRenderer, MacTexture, &source, &destination);
-			}
-			SDL_SetTextureAlphaMod(MacTexture, 255);
-			SDL_SetTextureBlendMode(MacTexture, SDL_BLENDMODE_NONE);
-		}
-		SDL_Rect bloom_destination = destination;
-		bloom_destination.x--;
-		SDL_RenderCopy(MacRenderer, MacCRTBloomTexture, &source, &bloom_destination);
-		bloom_destination.x += 2;
-		SDL_RenderCopy(MacRenderer, MacCRTBloomTexture, &source, &bloom_destination);
-		SDL_RenderCopy(MacRenderer, MacCRTTexture, 0, 0);
-		SDL_RenderSetClipRect(MacRenderer, 0);
-		if (mac_crt_split_requested()) {
-			SDL_SetRenderDrawColor(MacRenderer, 255, 255, 255, 255);
-			SDL_RenderDrawLine(MacRenderer, split.x, 0, split.x, split.h - 1);
-		}
-	}
-	char const *capture_path = getenv("RA_CRT_CAPTURE");
-	if (capture_path && capture_path[0] && !MacCRTCaptured && SDL_GetTicks() >= 5000) {
-		int output_w = 0;
-		int output_h = 0;
-		SDL_GetRendererOutputSize(MacRenderer, &output_w, &output_h);
-		SDL_Surface *capture = SDL_CreateRGBSurfaceWithFormat(0, output_w, output_h, 32, SDL_PIXELFORMAT_ARGB8888);
-		if (capture && SDL_RenderReadPixels(MacRenderer, 0, SDL_PIXELFORMAT_ARGB8888, capture->pixels, capture->pitch) == 0) {
-			MacCRTCaptured = SDL_SaveBMP(capture, capture_path) == 0;
-		}
-		if (capture) SDL_FreeSurface(capture);
-	}
 	SDL_RenderPresent(MacRenderer);
 	MacPresenting = false;
 }

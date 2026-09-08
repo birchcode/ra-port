@@ -513,7 +513,11 @@ inc_winvq_ww=(-I"$tmpdir/casefold/winvq/include/wwlib32" -I"$ROOT_DIR/WINVQ/INCL
 "${cxx_cmd[@]}" "${inc_port[@]}" "$ROOT_DIR/tests/timer_shim_test.cpp" "$ROOT_DIR/PORT/MAC/src/mac_timer.cpp" -o "$tmpdir/timer_shim_test"
 "$tmpdir/timer_shim_test"
 
-"${cxx_cmd[@]}" "${inc_port[@]}" "$ROOT_DIR/tests/input_shim_test.cpp" "$ROOT_DIR/PORT/MAC/src/mac_sdl_runtime.cpp" "$ROOT_DIR/PORT/MAC/src/mac_timer.cpp" $(pkg-config --cflags --libs sdl2) -o "$tmpdir/input_shim_test"
+gl_libs=(-lGL)
+if [[ "$(uname -s)" == Darwin ]]; then gl_libs=(-framework OpenGL); fi
+"${cxx_cmd[@]}" -DRA_MOBILE_TOUCH "${inc_port[@]}" $(pkg-config --cflags sdl2) -fsyntax-only "$ROOT_DIR/PORT/MAC/src/ra_crt_gl.cpp"
+
+"${cxx_cmd[@]}" "${inc_port[@]}" "$ROOT_DIR/tests/input_shim_test.cpp" "$ROOT_DIR/PORT/MAC/src/ra_crt_gl.cpp" "${gl_libs[@]}" "$ROOT_DIR/PORT/MAC/src/mac_sdl_runtime.cpp" "$ROOT_DIR/PORT/MAC/src/mac_timer.cpp" $(pkg-config --cflags --libs sdl2) -o "$tmpdir/input_shim_test"
 "$tmpdir/input_shim_test"
 
 "${cxx_cmd[@]}" -DTRUE_FALSE_DEFINED -DVQADIRECT_SOUND=1 "${inc_port[@]}" "${inc_winvq[@]}" "${inc_winvq_vqm[@]}" "${inc_winvq_ww[@]}" "${inc_code[@]}" \
