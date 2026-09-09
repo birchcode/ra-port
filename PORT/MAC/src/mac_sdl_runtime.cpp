@@ -773,6 +773,8 @@ bool MacSDL_SetTitleBackground(unsigned char const *pixels, int width, int heigh
 	return true;
 }
 
+bool MacSDL_IsLegacyViewport(void) { return MacLegacyViewport; }
+
 bool MacSDL_SetLegacyViewport(bool enabled)
 {
 	if (!enabled) MacSDL_SetTitleBackground(0, 0, 0);

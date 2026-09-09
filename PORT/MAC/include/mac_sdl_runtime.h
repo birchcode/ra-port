@@ -20,3 +20,15 @@ int MacSDL_ConsumeMobilePointerDrag(int *x, int *y);
 void MacSDL_SetCameraInput(bool enabled);
 bool MacSDL_ConsumeCameraPan(int *dx, int *dy, int *sidebar);
 bool MacSDL_CameraBounds(int *x, int *y, int *width, int *height);
+
+// Full-screen setup screens own their viewport through every return path.
+class MacSDLFullMenuViewport {
+	bool previous;
+public:
+	MacSDLFullMenuViewport() : previous(MacSDL_SetLegacyViewport(false)) { MacSDL_SetCameraInput(false); }
+	~MacSDLFullMenuViewport() { MacSDL_SetLegacyViewport(previous); }
+private:
+	MacSDLFullMenuViewport(MacSDLFullMenuViewport const &);
+	MacSDLFullMenuViewport &operator=(MacSDLFullMenuViewport const &);
+};
+bool MacSDL_IsLegacyViewport(void);

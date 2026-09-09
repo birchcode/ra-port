@@ -2499,7 +2499,11 @@ static void Load_Wide_Title(void)
 		file.Read(source.Get_Buffer(), 854 * 400) != 854 * 400) return;
 	source.Scale(scaled);
 	if (!MacSDL_SetTitleBackground((unsigned char const *)scaled.Get_Buffer(), width, 400)) return;
-	scaled.Blit(HidPage, (width - 640) / 2, 0, 0, 0, 640, 400);
+	if (MacSDL_IsLegacyViewport()) {
+		scaled.Blit(HidPage, (width - 640) / 2, 0, 0, 0, 640, 400);
+	} else {
+		scaled.Blit(HidPage);
+	}
 	fprintf(stderr, "Title: wide background loaded, centered legacy canvas, viewport %dx400\n", width);
 }
 

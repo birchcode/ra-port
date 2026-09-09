@@ -107,6 +107,7 @@
 //	Warning - Most disgusting cpp file of all time. ajw
 
 #include "function.h"
+#include "mac_sdl_runtime.h"
 #ifdef WIN32
 #ifdef WINSOCK_IPX
 #include	"WSProto.h"
@@ -1385,9 +1386,10 @@ static int Net_Join_Dialog(void)
 	//------------------------------------------------------------------------
 	//	Dialog & button dimensions
 	//------------------------------------------------------------------------
-		int d_dialog_w = 320 *RESFACTOR;											// dialog width
+		MacSDLFullMenuViewport menu_viewport;
+		int d_dialog_w = SeenBuff.Get_Width();											// dialog width
 		int d_dialog_h = 200 *RESFACTOR;											// dialog height
-		int d_dialog_x = ((320*RESFACTOR - d_dialog_w) / 2);				// dialog x-coord
+		int d_dialog_x = 0;				// dialog x-coord
 		int d_dialog_y = ((200*RESFACTOR - d_dialog_h) / 2);				// centered y-coord
 		int d_dialog_cx = d_dialog_x + (d_dialog_w / 2);		// center x-coord
 
@@ -1422,13 +1424,13 @@ static int Net_Join_Dialog(void)
 		int d_color_y = d_name_y;
 		int d_color_x = d_dialog_x + ((d_dialog_w / 4) * 3) - (d_color_w * 3);
 
-		int d_gamelist_w = 155 *RESFACTOR;
+		int d_gamelist_w = 155 *RESFACTOR + (d_dialog_w - 320 * RESFACTOR) / 2;
 		int d_gamelist_h = ((6 * 6) + 3) *RESFACTOR;		// 6 rows high
 		int d_gamelist_x = d_dialog_x + d_margin1 - 2*RESFACTOR;
 		int d_gamelist_y = d_color_y + d_color_h + d_margin2 + 2*RESFACTOR/*KO + d_txt6_h + d_margin2*/;
 
 //BG		int d_playerlist_w = 113 *RESFACTOR;
-	int d_playerlist_w = 118 *RESFACTOR;
+	int d_playerlist_w = 118 *RESFACTOR + (d_dialog_w - 320 * RESFACTOR) / 2;
 		int d_playerlist_h = ((6 * 6) + 3) *RESFACTOR;		// 6 rows high
 		int d_playerlist_x = d_dialog_x + d_dialog_w - (d_margin1 + d_playerlist_w - 2*RESFACTOR);
 		int d_playerlist_y = d_color_y + d_color_h + d_margin2 + 2*RESFACTOR/*KO + d_txt6_h + d_margin2*/;
@@ -4042,9 +4044,10 @@ static int Net_New_Dialog(void)
 	//------------------------------------------------------------------------
 	//	Dialog & button dimensions
 	//------------------------------------------------------------------------
-	int d_dialog_w = 320 *RESFACTOR;											// dialog width
+	MacSDLFullMenuViewport menu_viewport;
+	int d_dialog_w = SeenBuff.Get_Width();											// dialog width
 	int d_dialog_h = 200 *RESFACTOR;											// dialog height
-	int d_dialog_x = ((320 *RESFACTOR- d_dialog_w) / 2);				// dialog x-coord
+	int d_dialog_x = 0;				// dialog x-coord
 	int d_dialog_y = ((200 *RESFACTOR- d_dialog_h) / 2);				// centered y-coord
 	int d_dialog_cx = d_dialog_x + (d_dialog_w / 2);		// center x-coord
 
@@ -4053,12 +4056,12 @@ static int Net_New_Dialog(void)
 	int d_margin2 = 2*RESFACTOR;												// margin width/height
 
 //BG	int d_playerlist_w = 118*RESFACTOR;
-	int d_playerlist_w = 124*RESFACTOR;
+	int d_playerlist_w = 124*RESFACTOR + (d_dialog_w - 320 * RESFACTOR) / 2;
 	int d_playerlist_h = (6 * d_txt6_h) + 3*RESFACTOR;			// 6 rows high
 	int d_playerlist_x = d_dialog_x + d_margin1 + d_margin1 + 5*RESFACTOR;
 	int d_playerlist_y = d_dialog_y + d_margin1 + d_txt6_h + 3*RESFACTOR;
 
-	int d_scenariolist_w = 162*RESFACTOR;
+	int d_scenariolist_w = 162*RESFACTOR + (d_dialog_w - 320 * RESFACTOR) / 2;
 	int d_scenariolist_h = (6 * d_txt6_h) + 3*RESFACTOR;		// 6 rows high
 	int d_scenariolist_x = d_dialog_x + d_dialog_w - d_margin1 - d_margin1 - d_scenariolist_w - (5*RESFACTOR);
 	int d_scenariolist_y = d_playerlist_y;
@@ -6142,7 +6145,7 @@ static int Net_Fake_New_Dialog(void)
 	//------------------------------------------------------------------------
 	int d_dialog_w = 120 *RESFACTOR;											// dialog width
 	int d_dialog_h = 80 *RESFACTOR;											// dialog height
-	int d_dialog_x = ((320 *RESFACTOR- d_dialog_w) / 2);				// dialog x-coord
+	int d_dialog_x = ((MacSDL_IsLegacyViewport() ? 320 * RESFACTOR : SeenBuff.Get_Width()) - d_dialog_w) / 2;				// dialog x-coord
 	int d_dialog_y = ((200 *RESFACTOR- d_dialog_h) / 2);				// centered y-coord
 	int d_dialog_cx = d_dialog_x + (d_dialog_w / 2);		// center x-coord
 
@@ -6927,7 +6930,7 @@ static int Net_Fake_Join_Dialog(void)
 	//------------------------------------------------------------------------
 		int d_dialog_w = 120 *RESFACTOR;											// dialog width
 		int d_dialog_h = 80 *RESFACTOR;											// dialog height
-		int d_dialog_x = ((320*RESFACTOR - d_dialog_w) / 2);				// dialog x-coord
+		int d_dialog_x = ((MacSDL_IsLegacyViewport() ? 320 * RESFACTOR : SeenBuff.Get_Width()) - d_dialog_w) / 2;				// dialog x-coord
 		int d_dialog_y = ((200*RESFACTOR - d_dialog_h) / 2);				// centered y-coord
 		int d_dialog_cx = d_dialog_x + (d_dialog_w / 2);		// center x-coord
 

@@ -69,6 +69,26 @@ void Dialog_Box(int x, int y, int w, int h)
 	CC_Draw_Shape(shapedata, 1, cx,     cy-192, WINDOW_PARTIAL, SHAPE_WIN_REL);
 	CC_Draw_Shape(shapedata, 2, cx-312, cy,     WINDOW_PARTIAL, SHAPE_WIN_REL);
 	CC_Draw_Shape(shapedata, 3, cx,     cy,     WINDOW_PARTIAL, SHAPE_WIN_REL);
+	if (w > 640) {
+		// Repeat a clean grid cell; the unique diagonal/target artwork stays once.
+		GraphicBufferClass grid(48, 48, NULL, 48 * 48);
+		HidPage.Blit(grid, x + cx - 312 + 240, y + cy - 192, 0, 0, 48, 48);
+		for (int yy = 0; yy < h;) {
+			int sy = ((yy - (cy - 192)) % 48 + 48) % 48;
+			int rows = min(48 - sy, h - yy);
+			for (int xx = 0; xx < w;) {
+				int sx = ((xx - (cx - 312 + 240)) % 48 + 48) % 48;
+				int cols = min(48 - sx, w - xx);
+				grid.Blit(HidPage, sx, sy, x + xx, y + yy, cols, rows);
+				xx += cols;
+			}
+			yy += rows;
+		}
+		CC_Draw_Shape(shapedata, 0, cx-312, cy-192, WINDOW_PARTIAL, SHAPE_WIN_REL);
+		CC_Draw_Shape(shapedata, 1, cx, cy-192, WINDOW_PARTIAL, SHAPE_WIN_REL);
+		CC_Draw_Shape(shapedata, 2, cx-312, cy, WINDOW_PARTIAL, SHAPE_WIN_REL);
+		CC_Draw_Shape(shapedata, 3, cx, cy, WINDOW_PARTIAL, SHAPE_WIN_REL);
+	}
 #else
 	CC_Draw_Shape(shapedata, 0, cx-156, cy-96, WINDOW_PARTIAL, SHAPE_WIN_REL);
 #endif
@@ -97,12 +117,22 @@ void Dialog_Box(int x, int y, int w, int h)
 	CC_Draw_Shape(shapedata, 0, rightx, cy,					WINDOW_PARTIAL, SHAPE_WIN_REL);
 
 	shapedata = MFCD::Retrieve("DD-BOTM.SHP");
-	CC_Draw_Shape(shapedata, 0, cx-160*RESFACTOR, h-8*RESFACTOR, WINDOW_PARTIAL, SHAPE_WIN_REL);
-	CC_Draw_Shape(shapedata, 0, cx, h-8*RESFACTOR, WINDOW_PARTIAL, SHAPE_WIN_REL);
+	if (w > 640) {
+		for (int xx = 0; xx < w; xx += 320)
+			CC_Draw_Shape(shapedata, 0, xx, h-8*RESFACTOR, WINDOW_PARTIAL, SHAPE_WIN_REL);
+	} else {
+		CC_Draw_Shape(shapedata, 0, cx-160*RESFACTOR, h-8*RESFACTOR, WINDOW_PARTIAL, SHAPE_WIN_REL);
+		CC_Draw_Shape(shapedata, 0, cx, h-8*RESFACTOR, WINDOW_PARTIAL, SHAPE_WIN_REL);
+	}
 
 	shapedata = MFCD::Retrieve("DD-TOP.SHP");
-	CC_Draw_Shape(shapedata, 0, cx-160*RESFACTOR, 0, WINDOW_PARTIAL, SHAPE_WIN_REL);
-	CC_Draw_Shape(shapedata, 0, cx, 0, WINDOW_PARTIAL, SHAPE_WIN_REL);
+	if (w > 640) {
+		for (int xx = 0; xx < w; xx += 320)
+			CC_Draw_Shape(shapedata, 0, xx, 0, WINDOW_PARTIAL, SHAPE_WIN_REL);
+	} else {
+		CC_Draw_Shape(shapedata, 0, cx-160*RESFACTOR, 0, WINDOW_PARTIAL, SHAPE_WIN_REL);
+		CC_Draw_Shape(shapedata, 0, cx, 0, WINDOW_PARTIAL, SHAPE_WIN_REL);
+	}
 
 	/*
 	**	Draw the corner caps.

@@ -190,6 +190,21 @@ static void title_background_test()
 	MacSDL_Shutdown();
 }
 
+static void full_menu_viewport_test()
+{
+	MacSDL_SetLegacyViewport(true);
+	{
+		MacSDLFullMenuViewport outer;
+		assert(!MacSDL_IsLegacyViewport());
+		{
+			MacSDLFullMenuViewport inner;
+			assert(!MacSDL_IsLegacyViewport());
+		}
+		assert(!MacSDL_IsLegacyViewport());
+	}
+	assert(MacSDL_IsLegacyViewport());
+}
+
 static char to_ascii(UINT vk, bool shift, bool caps)
 {
 	BYTE state[256];
@@ -220,6 +235,7 @@ int main()
 
 	camera_input_test();
 	title_background_test();
+	full_menu_viewport_test();
 
 	return 0;
 }

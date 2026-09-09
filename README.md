@@ -331,6 +331,8 @@ Try it with `RA_CRT=1 RA_CRT_GLOW=25 scripts/run_mac_dev.sh --no-build` (or the 
 
 Widescreen main menus use `presentation/title-wide-854x400.idx` when available: generated wider artwork quantized to the original TITLE palette, with the original Westwood plaque and copyright pixels restored. The wider background is composed from the first title frame and stays behind compact dialogs, including New Game. Controls keep their original 640-pixel canvas, centered with matching pointer coordinates. Gameplay, movies and full-screen dialog backgrounds clear the title wings. Classic 640×400 mode, or a missing/invalid optional asset, keeps the original title. Other wider ratios fit the 16:9-authored composition to the logical viewport.
 
+The network browser, network game creation, serial/modem setup and skirmish creation now use the full logical screen width in widescreen mode. Player/scenario lists grow with available space. Original grid and straight border sprites cover the wider background; small dialogs remain compact and centered. Leaving these screens restores the previous viewport.
+
 Set `RA_TITLE_ART=original` to force the original title independently of widescreen gameplay. For a physical CRT, use `RA_CRT=0 RA_TITLE_ART=original`; add `RA_WIDESCREEN=0` for the classic layout. Display connections do not reliably identify CRT hardware, so this choice is explicit. The simulated CRT shader remains separately opt-in.
 
 Build with `cmake --build build --target redalert_mac`, then package with `python3 scripts/package_mac_playtest.py`. The launcher sets explicit playtest defaults while respecting environment overrides and records startup/title selection in `Contents/MacOS/playtest.log`.

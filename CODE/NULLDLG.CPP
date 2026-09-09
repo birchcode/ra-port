@@ -9,6 +9,7 @@
  */
 
 #include "function.h"
+#include "mac_sdl_runtime.h"
 #ifdef FIXIT_RANDOM_GAME
 #include "time.h"
 #endif
@@ -848,7 +849,7 @@ GameType Select_Serial_Dialog( void )
 	*/
 	int d_dialog_w = 160 * RESFACTOR;								// dialog width
 	int d_dialog_h = 94 * RESFACTOR;								// dialog height
-	int d_dialog_x = ((320 * RESFACTOR - d_dialog_w) / 2);	// dialog x-coord
+	int d_dialog_x = ((MacSDL_IsLegacyViewport() ? 320 * RESFACTOR : SeenBuff.Get_Width()) - d_dialog_w) / 2;	// dialog x-coord
 	int d_dialog_y = 80*RESFACTOR;
 //	int d_dialog_y = ((136 * RESFACTOR - d_dialog_h) / 2);	// dialog y-coord
 	int d_dialog_cx = d_dialog_x + (d_dialog_w / 2);	// center x-coord
@@ -1303,7 +1304,7 @@ int Advanced_Modem_Settings (SerialSettingsType *settings)
 #endif
 
 	int d_dialog_h = 200;													// dialog height
-	int d_dialog_x = 320 - d_dialog_w/2;								// dialog x-coord
+	int d_dialog_x = ((MacSDL_IsLegacyViewport() ? 640 : SeenBuff.Get_Width()) - d_dialog_w) / 2;								// dialog x-coord
 	int d_dialog_y = 200 - d_dialog_h/ 4;								// dialog y-coord
 
 
@@ -1583,9 +1584,10 @@ static int Com_Settings_Dialog( SerialSettingsType *settings )
 	/*
 	** Dialog & button dimensions
 	*/
-	int d_dialog_w = 320 * RESFACTOR;									// dialog width
+	MacSDLFullMenuViewport menu_viewport;
+	int d_dialog_w = SeenBuff.Get_Width();									// dialog width
 	int d_dialog_h = 200 * RESFACTOR;									// dialog height
-	int d_dialog_x = ((320 * RESFACTOR - d_dialog_w) / 2);		// dialog x-coord
+	int d_dialog_x = 0;		// dialog x-coord
 	int d_dialog_y = ((200 * RESFACTOR - d_dialog_h) / 2);		// dialog y-coord
 	int d_dialog_cx = d_dialog_x + (d_dialog_w / 2);		// center x-coord
 
@@ -2866,9 +2868,10 @@ int Com_Scenario_Dialog(bool skirmish)
 	/*........................................................................
 	Dialog & button dimensions
 	........................................................................*/
-	int d_dialog_w = 320 * RESFACTOR;									// dialog width
+	MacSDLFullMenuViewport menu_viewport;
+	int d_dialog_w = SeenBuff.Get_Width();									// dialog width
 	int d_dialog_h = 200 * RESFACTOR;									// dialog height
-	int d_dialog_x = ((320 * RESFACTOR - d_dialog_w) / 2);		// dialog x-coord
+	int d_dialog_x = 0;		// dialog x-coord
 	int d_dialog_y = ((200 * RESFACTOR - d_dialog_h) / 2);		// dialog y-coord
 	int d_dialog_cx = d_dialog_x + (d_dialog_w / 2);		// center x-coord
 
@@ -2903,12 +2906,12 @@ int Com_Scenario_Dialog(bool skirmish)
 	int d_color_y = d_name_y;
 	int d_color_x = d_dialog_x + ((d_dialog_w / 4) * 3) - (d_color_w * 3);
 
-	int d_playerlist_w = 118 * RESFACTOR;
+	int d_playerlist_w = 118 * RESFACTOR + (d_dialog_w - 320 * RESFACTOR) / 2;
 	int d_playerlist_h = (6 * 6 * RESFACTOR) + 3 * RESFACTOR;			// 6 rows high
 	int d_playerlist_x = d_dialog_x + d_margin1 + d_margin1 + 5*RESFACTOR;
 	int d_playerlist_y = d_color_y + d_color_h + d_margin2 + 2*RESFACTOR/*KO + d_txt6_h*/;
 
-	int d_scenariolist_w = 162 * RESFACTOR;
+	int d_scenariolist_w = 162 * RESFACTOR + (d_dialog_w - 320 * RESFACTOR) / 2;
 	int d_scenariolist_h = (6 * 6 * RESFACTOR) + 3 * RESFACTOR;		// 6 rows high
 
 	if (skirmish) {
@@ -4747,9 +4750,10 @@ int Com_Show_Scenario_Dialog(void)
 	/*........................................................................
 	Dialog & button dimensions
 	........................................................................*/
-	int d_dialog_w = 320 * RESFACTOR;									// dialog width
+	MacSDLFullMenuViewport menu_viewport;
+	int d_dialog_w = SeenBuff.Get_Width();									// dialog width
 	int d_dialog_h = 200 * RESFACTOR;									// dialog height
-	int d_dialog_x = ((320 * RESFACTOR - d_dialog_w) / 2);		// dialog x-coord
+	int d_dialog_x = 0;		// dialog x-coord
 	int d_dialog_y = ((200 * RESFACTOR - d_dialog_h) / 2);		// dialog y-coord
 	int d_dialog_cx = d_dialog_x + (d_dialog_w / 2);		// center x-coord
 
@@ -4789,13 +4793,13 @@ int Com_Show_Scenario_Dialog(void)
 
 	int d_scenario_y = d_name_y + d_name_h + d_margin2;
 
-	int d_gamelist_w = 160 * RESFACTOR;
+	int d_gamelist_w = 160 * RESFACTOR + (d_dialog_w - 320 * RESFACTOR) / 2;
 	int d_gamelist_h = (6 * 6 * RESFACTOR) + 3 * RESFACTOR;		// 6 rows high
 	int d_gamelist_x = d_dialog_x + d_margin1 + 10*RESFACTOR;
 	int d_gamelist_y = d_scenario_y + d_txt6_h + d_margin2 + d_txt6_h + d_margin2;
 
 //BG	int d_playerlist_w = 112 * RESFACTOR;
-	int d_playerlist_w = 118 * RESFACTOR;
+	int d_playerlist_w = 118 * RESFACTOR + (d_dialog_w - 320 * RESFACTOR) / 2;
 	int d_playerlist_h = (6 * 6 * RESFACTOR) + 3 * RESFACTOR;		// 6 rows high
 	int d_playerlist_x = d_dialog_x + d_dialog_w - d_margin1 - d_margin1 - d_playerlist_w - 5*RESFACTOR;
 	int d_playerlist_y = d_gamelist_y;
@@ -6290,7 +6294,7 @@ static int Phone_Dialog (void)
 	........................................................................*/
 	int d_dialog_w = 280 * RESFACTOR;									// dialog width
 	int d_dialog_h = 160 * RESFACTOR;									// dialog height
-	int d_dialog_x = ((320 * RESFACTOR - d_dialog_w) / 2);		// dialog x-coord
+	int d_dialog_x = ((MacSDL_IsLegacyViewport() ? 320 * RESFACTOR : SeenBuff.Get_Width()) - d_dialog_w) / 2;		// dialog x-coord
 	int d_dialog_y = ((200 * RESFACTOR - d_dialog_h) / 2);		// dialog y-coord
 	int d_dialog_cx = d_dialog_x + (d_dialog_w / 2);		// center x-coord
 
@@ -6861,7 +6865,7 @@ static int Edit_Phone_Dialog (PhoneEntryClass *phone)
 	........................................................................*/
 	int d_dialog_w = 230 * RESFACTOR;									// dialog width
 	int d_dialog_h = 110 * RESFACTOR;									// dialog height
-	int d_dialog_x = ((320 * RESFACTOR - d_dialog_w) / 2);		// dialog x-coord
+	int d_dialog_x = ((MacSDL_IsLegacyViewport() ? 320 * RESFACTOR : SeenBuff.Get_Width()) - d_dialog_w) / 2;		// dialog x-coord
 	int d_dialog_y = ((136 * RESFACTOR - d_dialog_h) / 2);		// dialog y-coord
 	int d_dialog_cx = d_dialog_x + (d_dialog_w / 2);		// center x-coord
 
