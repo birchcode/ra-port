@@ -8,6 +8,10 @@
  * See LICENSE.md.
  */
 
+#if defined(RA_GAME_RUNTIME)
+#include "mac_sdl_runtime.h"
+#endif
+
 #include "function.h"
 
 
@@ -234,6 +238,9 @@ void GScreenClass::Flag_To_Redraw(bool complete)
  *=============================================================================================*/
 void GScreenClass::Input(KeyNumType & key, int & x, int & y)
 {
+#if defined(RA_GAME_RUNTIME)
+	MacSDL_SetCameraInput(true);
+#endif
 	key = Keyboard->Check();
 
 	x = Keyboard->Mouse_X();

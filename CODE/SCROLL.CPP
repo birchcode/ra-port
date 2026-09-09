@@ -9,6 +9,19 @@
  */
 
 #include	"function.h"
+#if defined(RA_GAME_RUNTIME)
+#include "mac_sdl_runtime.h"
+
+bool MacSDL_CameraBounds(int *x, int *y, int *width, int *height)
+{
+	if (!GameActive || !GameInFocus || InMovie || ScenarioInit || SpecialDialog != SDLG_NONE) return false;
+	*x = WindowList[WINDOW_TACTICAL][WINDOWX];
+	*y = WindowList[WINDOW_TACTICAL][WINDOWY];
+	*width = WindowList[WINDOW_TACTICAL][WINDOWWIDTH];
+	*height = WindowList[WINDOW_TACTICAL][WINDOWHEIGHT];
+	return *width > 0 && *height > 0;
+}
+#endif
 
 #ifdef WIN32
 #define	SCROLL_DELAY	1
@@ -66,12 +79,38 @@ void ScrollClass::AI(KeyNumType &input, int x, int y)
 	static 	DirType	direction;
 	static unsigned long last_scroll_tick = 0xffffffffUL;
 	int		rate;
+	bool camera_panning = false;
+	bool edge_scroll = true;
+#if defined(RA_GAME_RUNTIME)
+	char const *edge_setting = getenv("RA_EDGE_SCROLL");
+	edge_scroll = !edge_setting || strcmp(edge_setting, "0") != 0;
+	if (!edge_scroll) Inertia = 0;
+	int pan_x, pan_y, sidebar;
+	camera_panning = MacSDL_ConsumeCameraPan(&pan_x, &pan_y, &sidebar);
+	if (camera_panning && !IsRubberBand && !IsTentative) {
+		Inertia = 0;
+		if (pan_x || pan_y) {
+			// Both axes must use the pending position: Scroll_Map uses the last rendered
+			// position, so two cardinal calls would discard the first axis.
+			int next_x = Coord_X(DesiredTacticalCoord) + (pan_x < 0 ? -1 : 1) * Pixel_To_Lepton(abs(pan_x));
+			int next_y = Coord_Y(DesiredTacticalCoord) + (pan_y < 0 ? -1 : 1) * Pixel_To_Lepton(abs(pan_y));
+			next_x = Bound(next_x, Cell_To_Lepton(MapCellX), Cell_To_Lepton(MapCellX + MapCellWidth) - TacLeptonWidth);
+			next_y = Bound(next_y, Cell_To_Lepton(MapCellY), Cell_To_Lepton(MapCellY + MapCellHeight) - TacLeptonHeight);
+			Set_Tactical_Position(XY_Coord(next_x, next_y));
+			// Wheel/drag jumps can exceed the legacy renderer's two-cell dirty strip.
+			Flag_To_Redraw(true);
+		}
+		for (int step = 0; step < min(abs(sidebar), 8); ++step) {
+			Map.SidebarClass::Scroll(sidebar < 0, -1);
+		}
+	}
+#endif
 
 
 	/*
 	**	If rubber band mode is in progress, then don't allow scrolling of the tactical map.
 	*/
-	if (!IsRubberBand /*&& !IsTentative*/) {
+	if (!IsRubberBand && !camera_panning && edge_scroll /*&& !IsTentative*/) {
 
 		/*
 		**	Special check to not scroll within the special no-scroll regions.

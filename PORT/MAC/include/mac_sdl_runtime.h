@@ -14,3 +14,7 @@ void MacSDL_PumpEvents(void);
 bool MacSDL_QuitRequested(void);
 bool MacSDL_TouchCursorHidden(void);
 int MacSDL_ConsumeMobilePointerDrag(int *x, int *y);
+
+void MacSDL_SetCameraInput(bool enabled);
+bool MacSDL_ConsumeCameraPan(int *dx, int *dy, int *sidebar);
+bool MacSDL_CameraBounds(int *x, int *y, int *width, int *height);

@@ -320,7 +320,23 @@ RA_FULLSCREEN=1 RA_WIDESCREEN=1 RA_CRT=1 scripts/run_linux_dev.sh
 ```
 
 CRT mode uses a desktop OpenGL 2.1 compatibility shader; mobile keeps its SDL renderer. CRT mode displays the original 640x400 image at its intended 4:3 monitor aspect. For an A/B comparison, add `RA_CRT_DEBUG=split`; the left half remains clean and the right half receives the CRT treatment.
+The default RGB phosphor pattern uses a finer 3×4 output-pixel repeat. The optional physical-subpixel mode keeps its original pixel calibration.
 Set `RA_CRT_MASK_STRENGTH=0..100` to calibrate phosphor visibility for the monitor; the legibility-balanced default is `25`, while `100` exposes fully separated RGB elements for close inspection.
+
+## Desktop camera controls
+
+- **Middle-button drag:** grab and move the battlefield.
+- **Mouse wheel:** pan vertically; **Shift+wheel** pans horizontally.
+- **Trackpad:** pan on both axes, including small movements.
+- **Wheel over the sidebar:** scroll the build lists.
+
+Left-drag selection and right-click commands remain available. Camera gestures are disabled in dialogs and movies, and dragging stops on Escape, focus loss, or fullscreen/size changes.
+
+Edge scrolling remains enabled. Set `RA_EDGE_SCROLL=0` to disable it. `RA_PAN_SPEED=0.1..10` adjusts wheel/trackpad speed (default `1`); `RA_PAN_REVERSE=1` reverses wheel/trackpad camera direction. For example:
+
+```sh
+RA_FULLSCREEN=1 RA_WIDESCREEN=1 RA_EDGE_SCROLL=0 scripts/run_mac_dev.sh
+```
 
 ## Tests
 

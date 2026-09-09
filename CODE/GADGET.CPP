@@ -8,6 +8,10 @@
  * See LICENSE.md.
  */
 
+#if defined(RA_GAME_RUNTIME)
+#include "mac_sdl_runtime.h"
+#endif
+
 #include "function.h"
 
 
@@ -423,6 +427,9 @@ void GadgetClass::Draw_All(bool forced)
  *=========================================================================*/
 KeyNumType GadgetClass::Input(void)
 {
+#if defined(RA_GAME_RUNTIME)
+	if (this != GScreenClass::Buttons) MacSDL_SetCameraInput(false);
+#endif
 	int mousex, mousey;
 	KeyNumType key;
 	unsigned flags;

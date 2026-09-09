@@ -128,7 +128,7 @@ static char const *CRTFragmentShader =
 	"  float raster_distance = fract(source_y) - 0.5;\n"
 	"  float beam = 0.32 + 0.68 * exp(-raster_distance * raster_distance * 10.0);\n"
 	"  vec2 pixel = vec2(gl_FragCoord.x - viewport.x, output_height - gl_FragCoord.y - viewport.y);\n"
-	"  vec4 phosphor = mask_at(pixel);\n"
+	"  vec4 phosphor = mask_at(subpixel_mask != 0 ? pixel : pixel * 2.0);\n"
 	"  vec3 emitted = beam_colour * beam * phosphor.rgb;\n"
 	"  if (subpixel_mask != 0) emitted = beam_colour * beam * phosphor.a;\n"
 	"  float bright = max(luminance(beam_colour) - 0.72, 0.0);\n"

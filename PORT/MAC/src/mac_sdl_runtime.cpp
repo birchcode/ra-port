@@ -35,6 +35,47 @@ static unsigned char MacToggleState[256];
 static POINT MacMousePoint = {0, 0};
 static bool MacUnmodifiedKeyDispatch = false;
 
+static bool MacCameraInput = false;
+static bool MacCameraFocused = true;
+static bool MacCameraDragging = false;
+static double MacCameraX = 0, MacCameraY = 0, MacSidebarWheel = 0;
+
+static void mac_cancel_camera(void)
+{
+	if (MacCameraDragging) SDL_CaptureMouse(SDL_FALSE);
+	MacCameraDragging = false;
+	MacCameraX = MacCameraY = MacSidebarWheel = 0;
+}
+
+void MacSDL_SetCameraInput(bool enabled)
+{
+	MacCameraInput = enabled;
+	if (!enabled) mac_cancel_camera();
+}
+
+static bool mac_camera_bounds(int *x, int *y, int *width, int *height)
+{
+#if !defined(RA_MOBILE_TOUCH)
+	if (MacCameraInput && MacCameraFocused && MacSDL_CameraBounds(x, y, width, height)) return true;
+#endif
+	mac_cancel_camera();
+	return false;
+}
+
+bool MacSDL_ConsumeCameraPan(int *dx, int *dy, int *sidebar)
+{
+	int x, y, width, height;
+	mac_camera_bounds(&x, &y, &width, &height);
+	*dx = (int)MacCameraX;
+	*dy = (int)MacCameraY;
+	*sidebar = (int)MacSidebarWheel;
+	MacCameraX -= *dx;
+	MacCameraY -= *dy;
+	MacSidebarWheel -= *sidebar;
+	return MacCameraDragging || *dx || *dy || *sidebar;
+}
+
+
 #if defined(RA_MOBILE_TOUCH)
 static MobileTouchGesture MobileTouch;
 static MobilePanState MobilePan;
@@ -549,6 +590,7 @@ static void mac_destroy_video_objects(void)
 
 bool MacSDL_SetFullscreen(bool enabled)
 {
+	mac_cancel_camera();
 	MacFullscreen = enabled;
 	if (!MacWindow) {
 		return true;
@@ -691,11 +733,13 @@ bool MacSDL_SetLegacyViewport(bool enabled)
 {
 	bool previous = MacLegacyViewport;
 	MacLegacyViewport = enabled;
+	if (enabled) MacSDL_SetCameraInput(false);
 	return previous;
 }
 
 void MacSDL_Shutdown(void)
 {
+	MacSDL_SetCameraInput(false);
 	if (MacFrame) {
 		free(MacFrame);
 		MacFrame = 0;
@@ -744,11 +788,35 @@ static void mac_sdl_pump_events(bool allow_idle_delay)
 				mac_queue_message((HWND)(intptr_t)1, WM_DESTROY, 0, 0);
 				break;
 
+			case SDL_WINDOWEVENT:
+				if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) MacCameraFocused = true;
+				if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+					MacCameraFocused = false;
+					int buttons[] = {VK_LBUTTON, VK_RBUTTON, VK_MBUTTON};
+					for (int i = 0; i < 3; ++i) {
+						if (MacKeyState[buttons[i]]) mac_queue_mouse_button(buttons[i], false, MacMousePoint.x, MacMousePoint.y);
+					}
+				}
+				if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST ||
+					event.window.event == SDL_WINDOWEVENT_MINIMIZED ||
+					event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+					mac_cancel_camera();
+				}
+				break;
+
 			case SDL_MOUSEMOTION: {
 				int x = event.motion.x;
 				int y = event.motion.y;
 				mac_to_logical_point(&x, &y);
 				mac_update_mouse_position(x, y);
+				int bx, by, bw, bh;
+				if (mac_camera_bounds(&bx, &by, &bw, &bh) && MacCameraDragging) {
+					RAAspectViewport viewport = mac_window_viewport();
+					if (viewport.w > 0 && viewport.h > 0) {
+						MacCameraX -= (double)event.motion.xrel * mac_content_width() / viewport.w;
+						MacCameraY -= (double)event.motion.yrel * MacHeight / viewport.h;
+					}
+				}
 				break;
 			}
 
@@ -760,8 +828,54 @@ static void mac_sdl_pump_events(bool allow_idle_delay)
 				}
 				int x = event.button.x;
 				int y = event.button.y;
-				mac_to_logical_point(&x, &y);
+				bool inside = mac_to_logical_point(&x, &y);
+				int bx, by, bw, bh;
+				bool camera = mac_camera_bounds(&bx, &by, &bw, &bh);
+				if (vk == VK_MBUTTON) {
+					if (event.type == SDL_MOUSEBUTTONUP && MacCameraDragging) {
+						MacCameraDragging = false;
+						SDL_CaptureMouse(SDL_FALSE);
+						break;
+					}
+					if (event.type == SDL_MOUSEBUTTONDOWN && camera && inside &&
+						x >= bx && y >= by && x < bx + bw && y < by + bh &&
+						!MacKeyState[VK_LBUTTON] && !MacKeyState[VK_RBUTTON]) {
+						mac_cancel_camera();
+						MacCameraDragging = true;
+						SDL_CaptureMouse(SDL_TRUE);
+						break;
+					}
+				} else if (event.type == SDL_MOUSEBUTTONDOWN) {
+					mac_cancel_camera();
+				}
 				mac_queue_mouse_button(vk, event.type == SDL_MOUSEBUTTONDOWN, x, y);
+				break;
+			}
+
+			case SDL_MOUSEWHEEL: {
+				int bx, by, bw, bh, x, y;
+				if (!mac_camera_bounds(&bx, &by, &bw, &bh) || MacCameraDragging ||
+					MacKeyState[VK_LBUTTON] || MacKeyState[VK_RBUTTON]) break;
+				SDL_GetMouseState(&x, &y);
+				if (!mac_to_logical_point(&x, &y) || y < by || y >= by + bh) break;
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+				double dx = event.wheel.preciseX, dy = event.wheel.preciseY;
+#else
+				double dx = event.wheel.x, dy = event.wheel.y;
+#endif
+				if (event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED) { dx = -dx; dy = -dy; }
+				if (x >= bx + bw) {
+					MacSidebarWheel -= dy;
+				} else if (x >= bx) {
+					if (SDL_GetModState() & KMOD_SHIFT) { dx -= dy; dy = 0; }
+					char const *speed = getenv("RA_PAN_SPEED");
+					double scale = speed ? atof(speed) : 1;
+					if (!(scale >= 0.1 && scale <= 10)) scale = 1;
+					char const *reverse = getenv("RA_PAN_REVERSE");
+					if (reverse && strcmp(reverse, "1") == 0) scale = -scale;
+					MacCameraX += dx * 24 * scale;
+					MacCameraY -= dy * 24 * scale;
+				}
 				break;
 			}
 
@@ -819,6 +933,7 @@ static void mac_sdl_pump_events(bool allow_idle_delay)
 
 			case SDL_KEYDOWN:
 			case SDL_KEYUP: {
+				if (event.key.keysym.sym == SDLK_ESCAPE) mac_cancel_camera();
 				if (event.type == SDL_KEYDOWN && !event.key.repeat &&
 						(event.key.keysym.sym == SDLK_RETURN || event.key.keysym.sym == SDLK_KP_ENTER) &&
 						(event.key.keysym.mod & (KMOD_GUI | KMOD_ALT))) {

@@ -1,21 +1,25 @@
 # Project state and next playable milestones
 
-Updated 2026-09-08. Planning baseline after consolidation into main.
+Updated 2026-09-09. Baseline after worktree consolidation and desktop camera implementation.
 
 ## Handoff
 
-- All six worktree branch histories are merged into main. The latest CRT commit had equivalent content in the playtest branch but needed its ancestry merged explicitly.
-- Included pending GPU CRT renderer work (identical in CRT/playtest worktrees) and three title-screen concepts under `docs/images/concepts/`. Asset symlinks remain local. Worktree directories and their pending originals are retained; no push or cleanup was requested.
-- Integration fixes: mobile compiles a no-op CRT backend and never requests desktop CRT; desktop links OpenGL; Linux dependency instructions/CI include OpenGL; input tests link the new renderer and check mobile compilation.
-- Verified: macOS configure/build, source/script suite, UDP loopback round trip, and nine-second clean/CRT launch checks. CRT capture: `/tmp/ra-merge-crt.png`. Logs: `/tmp/ra-merge-{configure,build,tests,clean-smoke,crt-smoke}.log`. Temporary test runner changes only cleanup to retain artifacts, honoring the no-permanent-deletion instruction.
-- Not verified here: complete campaign/skirmish session, two-machine multiplayer, Linux build, mobile device builds, fullscreen control usability, long-session CRT performance. OpenGL compatibility availability and macOS deprecation remain portability concerns.
-- Next bounded deliverable: desktop camera controls below. Do not implement internet play before validating the current LAN simulation.
+- All six worktree histories and pending GPU CRT work were consolidated into main (`874c847`). Worktree directories and asset symlinks remain intact; nothing was pushed.
+- Desktop camera controls now support middle-button grab drag, wheel/Shift+wheel, fractional two-axis trackpad input, sidebar wheel scrolling, and cancellation on Escape, focus loss, mode changes and dialog entry. Selection and right-button actions suppress panning.
+- `RA_EDGE_SCROLL=0` disables edge scrolling; `RA_PAN_SPEED=0.1..10` and `RA_PAN_REVERSE=1` tune wheel input. In-game settings and visible controls hints remain milestone 2.
+- Camera deltas use viewport scaling and the pending tactical position, clamp before coordinate packing, and request a complete redraw because legacy dirty strips leave artifacts on large jumps. Long-session performance still needs evaluation.
+- User requested a finer CRT pattern: RGB mask repeat is halved from 6×8 to 3×4 output pixels; original raster scanlines, brightness settings and physical-subpixel calibration remain.
+- Changed paths: `PORT/MAC/src/mac_sdl_runtime.cpp`, its header, `CODE/{GSCREEN,GADGET,SCROLL}.CPP`, `tests/input_shim_test.cpp`, and `PORT/MAC/src/ra_crt_gl.cpp`; controls documented in README.
+- Verified: macOS build; full source/script suite; SDL event tests for drag, wheel, fractional axes, scaling, sidebar/menu routing, selection and cancellation. Logs: `/tmp/ra-camera-build.log`, `/tmp/ra-camera-tests.log`, `/tmp/ra-camera-input-build.log`. Test artifacts retained instead of permanently deleted.
+- Visual QA reached fullscreen widescreen skirmish with clean and CRT rendering. A wheel pan exposed stale-render artifacts and led to the full-redraw fix; the later CRT battlefield was visually clean, but concurrent user interaction prevented an isolated final gesture matrix. Native middle-drag/trackpad feel, clean-mode retest, all map edges, Linux/mobile and extended performance checks remain open.
+- A temporary `/tmp/RA Camera Playtest.app` wraps the current binary for UI tooling, links only local assets, and launches with CRT/fullscreen/widescreen. It is not a distributable package. The user was interacting with the running game at the end of the check.
+- Next bounded deliverable: visible display/control settings and a short controls hint, with the remaining camera acceptance checks above. Validate full LAN matches before internet transport work.
 
 ## Where the project stands
 
 The existing port supports campaigns, skirmish, sound and movies, native macOS/Linux desktop targets, and Android/iOS debug targets. Those gameplay claims come from the existing project documentation; this consolidation verified builds/tests and startup, not every mission.
 
-Merged work adds LAN lobby/UDP transport, VQA compatibility improvements, presentation pacing, widescreen battlefield geometry, centered legacy screens, and optional CRT treatment. Fullscreen is supported, but modern desktop camera input is incomplete: SDL events do not handle wheel panning; middle mouse is translated as a button without a camera-drag implementation.
+Merged work adds LAN lobby/UDP transport, VQA compatibility improvements, presentation pacing, widescreen battlefield geometry, centered legacy screens, and optional CRT treatment. Fullscreen now has desktop wheel/trackpad panning and middle-button camera dragging; the controls still need in-game discovery and settings.
 
 This is a playable development build with several features still exposed through environment variables. The concept images are design assets, not an implemented replacement title screen. LAN is implemented, but the transport smoke test is not evidence of a complete synchronized match.
 
@@ -23,7 +27,7 @@ This is a playable development build with several features still exposed through
 
 | Order | Deliverable | Why it helps | Acceptance |
 | --- | --- | --- | --- |
-| 1 | Camera you can move without finding an edge | Immediate benefit in every fullscreen match | Middle drag, wheel and trackpad pan work in windowed/fullscreen, clean/CRT/widescreen; no accidental orders or selection; correct bounds and focus handling |
+| 1 | Camera controls implemented; finish manual acceptance checks | Immediate benefit in every fullscreen match | Middle drag, wheel and trackpad pan work in windowed/fullscreen, clean/CRT/widescreen; no accidental orders or selection; correct bounds and focus handling |
 | 2 | Small in-game display/control settings and a short controls hint | Removes terminal-only setup and makes controls discoverable | Persist fullscreen, widescreen, CRT and pan preferences; opening/closing menus does not change selection or move camera |
 | 3 | Faster return to play | Less menu friction between battles | Remember skirmish choices; clear play-again path; smoke-check save/load and return-to-menu behavior before changing it |
 | 4 | Prove LAN through a full match | Establishes a trustworthy foundation for internet play | Two real machines host/join/start, play 30 minutes, reach results/rematch; test disconnect, mismatched build/data, and mixed macOS/Linux when available |
@@ -85,4 +89,4 @@ Technical references checked 2026-09-08:
 - Intel macOS and physical mobile device validation; mobile release packaging; expansion content support remain later priorities.
 - Package/legal asset separation is already documented: keep local game data out of commits and distributable bundles. No new asset distribution is part of this plan.
 
-Continuation prompt: “Read docs/PROJECT_PLAN.md, verify current input code, and implement milestone 1: middle-drag plus wheel/trackpad camera panning. Preserve selection, commands, sidebar/menu input and pixel-coordinate calibration. Use existing tests and playtest a fullscreen skirmish. Update the handoff with evidence.”
+Continuation prompt: “Read docs/PROJECT_PLAN.md and verify the current camera implementation. Complete remaining manual camera acceptance checks, then implement milestone 2: visible display/control settings and a short controls hint. Preserve selection, commands, sidebar/menu input and pixel-coordinate calibration. Update the existing handoff with evidence.”
