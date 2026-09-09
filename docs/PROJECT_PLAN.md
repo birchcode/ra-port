@@ -11,9 +11,9 @@ Updated 2026-09-09. Baseline after worktree consolidation and desktop camera imp
 - User requested a finer CRT pattern: RGB mask repeat is halved from 6×8 to 3×4 output pixels; original raster scanlines, brightness settings and physical-subpixel calibration remain.
 - Changed paths: `PORT/MAC/src/mac_sdl_runtime.cpp`, its header, `CODE/{GSCREEN,GADGET,SCROLL}.CPP`, `tests/input_shim_test.cpp`, and `PORT/MAC/src/ra_crt_gl.cpp`; controls documented in README.
 - Verified: macOS build; full source/script suite; SDL event tests for drag, wheel, fractional axes, scaling, sidebar/menu routing, selection and cancellation. Logs: `/tmp/ra-camera-build.log`, `/tmp/ra-camera-tests.log`, `/tmp/ra-camera-input-build.log`. Test artifacts retained instead of permanently deleted.
-- Visual QA reached fullscreen widescreen skirmish with clean and CRT rendering. A wheel pan exposed stale-render artifacts and led to the full-redraw fix; the later CRT battlefield was visually clean, but concurrent user interaction prevented an isolated final gesture matrix. Native middle-drag/trackpad feel, clean-mode retest, all map edges, Linux/mobile and extended performance checks remain open.
+- User confirmed the camera controls and finer CRT effect all worked after playtesting on 2026-09-09. Automated checks and macOS build also passed. Other platforms and extended performance checks remain open.
 - A temporary `/tmp/RA Camera Playtest.app` wraps the current binary for UI tooling, links only local assets, and launches with CRT/fullscreen/widescreen. It is not a distributable package. The user was interacting with the running game at the end of the check.
-- Next bounded deliverable: visible display/control settings and a short controls hint, with the remaining camera acceptance checks above. Validate full LAN matches before internet transport work.
+- Next bounded deliverable: explore responsive interface composition from original art slices (below), then build display/control settings using that visual vocabulary. Validate full LAN matches before internet transport work.
 
 ## Where the project stands
 
@@ -27,7 +27,7 @@ This is a playable development build with several features still exposed through
 
 | Order | Deliverable | Why it helps | Acceptance |
 | --- | --- | --- | --- |
-| 1 | Camera controls implemented; finish manual acceptance checks | Immediate benefit in every fullscreen match | Middle drag, wheel and trackpad pan work in windowed/fullscreen, clean/CRT/widescreen; no accidental orders or selection; correct bounds and focus handling |
+| 1 | Camera controls complete; user playtest passed | Immediate benefit in every fullscreen match | Middle drag, wheel and trackpad pan work in windowed/fullscreen, clean/CRT/widescreen; no accidental orders or selection; correct bounds and focus handling |
 | 2 | Small in-game display/control settings and a short controls hint | Removes terminal-only setup and makes controls discoverable | Persist fullscreen, widescreen, CRT and pan preferences; opening/closing menus does not change selection or move camera |
 | 3 | Faster return to play | Less menu friction between battles | Remember skirmish choices; clear play-again path; smoke-check save/load and return-to-menu behavior before changing it |
 | 4 | Prove LAN through a full match | Establishes a trustworthy foundation for internet play | Two real machines host/join/start, play 30 minutes, reach results/rematch; test disconnect, mismatched build/data, and mixed macOS/Linux when available |
@@ -35,6 +35,22 @@ This is a playable development build with several features still exposed through
 | 6 | Finish presentation and distribution | Makes the build easy to share and start | Decide whether title concepts improve the existing art; readable UI at common displays; macOS app bundle with external asset setup; documented Linux package path |
 
 Do 1–3 before adding more visual effects. A good short-term milestone is a fullscreen skirmish that is easy to move around, easy to configure, and easy to replay.
+
+## Next exploration: responsive composition from original art
+
+Direction agreed for exploration on 2026-09-09: preserve original pixels and palette, find repeatable sections and compose them at modern screen dimensions. Generated replacement title concepts lost the original style and are not the preferred path.
+
+Evidence: `CODE/DIALOG.CPP:34` already composes `DD-BKGND.SHP`, `DD-EDGE.SHP`, side/top/bottom bars and corner caps. Its background and bar coverage still contains fixed extents; do not assume it handles arbitrary dimensions today. `CODE/INIT.CPP:2485` loads the title as a single `TITLE.PCX`/`TITLE.CPS` image. The sidebar already has separate SHP assets.
+
+First deliverable is a local source-art contact sheet with candidate crop rectangles, followed by static compositions at 4:3, 16:10, 16:9 and 21:9. Build these from the legally obtained local assets, without publishing them or committing extracted game art. No new image generation is needed.
+
+- Fixed pieces: logos, lettering, unique illustrations, corner caps, bolts and curved frame segments. Keep their proportions and pixel detail.
+- Repeatable pieces: verified seamless metal/rib strips, flat dark panels, straight borders, and red grid sections. Align grid phase and inspect tile seams; a crop is not automatically seamless.
+- Reposition rather than stretch: centered title/command group, corners anchored to frame bounds, sidebar anchored to the right. Let added space expose battlefield or useful rows when the chosen logical resolution allows it.
+- The title's curved mechanical surround may not tile cleanly. Preserve its central composition and add outer framing from suitable original material if clean cuts cannot be found. Do not mirror lighting, stretch the logo, or invent repeated distinctive damage.
+- Reuse the existing dialog composition code before introducing a generalized skin system. Derive drawing rectangles and hitboxes from the same layout values.
+
+Accept the visual direction before integration: original-size parity, recognizable original composition, no conspicuous seams, preserved palette/pixel aspect, readable labels, and clean plus CRT inspection. Once selected, integrate one screen first (title/menu), then reuse proven pieces for settings, skirmish setup and other dialogs. In-game settings and controls hints remain the next functional feature; private dial-up multiplayer follows LAN validation.
 
 ## Camera specification
 
@@ -89,4 +105,4 @@ Technical references checked 2026-09-08:
 - Intel macOS and physical mobile device validation; mobile release packaging; expansion content support remain later priorities.
 - Package/legal asset separation is already documented: keep local game data out of commits and distributable bundles. No new asset distribution is part of this plan.
 
-Continuation prompt: “Read docs/PROJECT_PLAN.md and verify the current camera implementation. Complete remaining manual camera acceptance checks, then implement milestone 2: visible display/control settings and a short controls hint. Preserve selection, commands, sidebar/menu input and pixel-coordinate calibration. Update the existing handoff with evidence.”
+Continuation prompt: “Read docs/PROJECT_PLAN.md. Explore responsive title/menu composition using original local game art: identify fixed and tileable crops, produce a local contact sheet and aspect-ratio previews, preserve the original palette and pixel aspect, and keep extracted art out of Git. Reuse existing dialog sprites where possible. Do not integrate the layout until the visual direction has been reviewed.”
