@@ -329,6 +329,8 @@ Widescreen main menus use `presentation/title-wide-854x400.idx` when available: 
 
 Set `RA_TITLE_ART=original` to force the original title independently of widescreen gameplay. For a physical CRT, use `RA_CRT=0 RA_TITLE_ART=original`; add `RA_WIDESCREEN=0` for the classic layout. Display connections do not reliably identify CRT hardware, so this choice is explicit. The simulated CRT shader remains separately opt-in.
 
+Build with `cmake --build build --target redalert_mac`, then package with `python3 scripts/package_mac_playtest.py`. The launcher sets explicit playtest defaults while respecting environment overrides and records startup/title selection in `Contents/MacOS/playtest.log`.
+
 The updated local app is `RA Widescreen Playtest.app`; the older Camera Playtest app lacks this title integration. When bundling, include `presentation/` alongside the executable's resource root. Original game data remains separately required.
 
 ## Desktop camera controls

@@ -2491,9 +2491,16 @@ int Begin_Wide_Title(void)
 {
 	char const *art = getenv("RA_TITLE_ART");
 	if (WideTitle || SeenBuff.Get_Width() <= 640 || SeenBuff.Get_Height() != 400 ||
-		(art && strcmp(art, "original") == 0)) return 0;
+		(art && strcmp(art, "original") == 0)) {
+		fprintf(stderr, "Title: original (viewport %dx%d, preference %s)\n",
+			SeenBuff.Get_Width(), SeenBuff.Get_Height(), art ? art : "auto");
+		return 0;
+	}
 	CCFileClass file("presentation/title-wide-854x400.idx");
-	if (!file.Is_Available() || file.Size() != 854 * 400) return 0;
+	if (!file.Is_Available() || file.Size() != 854 * 400) {
+		fprintf(stderr, "Title: original (wide artwork missing or invalid: %s)\n", file.File_Name());
+		return 0;
+	}
 	WideTitle = new GraphicBufferClass(854, 400, NULL, 854 * 400);
 	if (!WideTitle || !WideTitle->Get_Buffer() ||
 		file.Read(WideTitle->Get_Buffer(), 854 * 400) != 854 * 400) {
@@ -2501,6 +2508,7 @@ int Begin_Wide_Title(void)
 		WideTitle = NULL;
 		return 0;
 	}
+	fprintf(stderr, "Title: wide artwork loaded, viewport %dx%d\n", SeenBuff.Get_Width(), SeenBuff.Get_Height());
 	WideTitleLegacyViewport = MacSDL_SetLegacyViewport(false);
 	return (SeenBuff.Get_Width() - 640) / 2;
 }
