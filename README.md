@@ -323,6 +323,14 @@ CRT mode uses a desktop OpenGL 2.1 compatibility shader; mobile keeps its SDL re
 The default RGB phosphor pattern uses a finer 3×4 output-pixel repeat. The optional physical-subpixel mode keeps its original pixel calibration.
 Set `RA_CRT_MASK_STRENGTH=0..100` to calibrate phosphor visibility for the monitor; the legibility-balanced default is `25`, while `100` exposes fully separated RGB elements for close inspection.
 
+## Title artwork and physical CRTs
+
+Widescreen main menus use `presentation/title-wide-854x400.idx` when available: generated wider artwork quantized to the original TITLE palette, with the original Westwood plaque and copyright pixels restored. Buttons and pointer coordinates share the wider viewport. Leaving the main menu restores the original artwork and legacy dialog layout. Classic 640×400 mode, or a missing/invalid optional asset, keeps the original title. Other wider ratios fit the 16:9-authored composition to the logical viewport.
+
+Set `RA_TITLE_ART=original` to force the original title independently of widescreen gameplay. For a physical CRT, use `RA_CRT=0 RA_TITLE_ART=original`; add `RA_WIDESCREEN=0` for the classic layout. Display connections do not reliably identify CRT hardware, so this choice is explicit. The simulated CRT shader remains separately opt-in.
+
+The updated local app is `RA Widescreen Playtest.app`; the older Camera Playtest app lacks this title integration. When bundling, include `presentation/` alongside the executable's resource root. Original game data remains separately required.
+
 ## Desktop camera controls
 
 - **Middle-button drag:** grab and move the battlefield.

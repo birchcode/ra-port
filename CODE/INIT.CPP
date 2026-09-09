@@ -2482,10 +2482,45 @@ void Init_Random(void)
  * HISTORY:                                                                                    *
  *   06/03/1996 JLB : Created.                                                                 *
  *=============================================================================================*/
+// Optional local art uses the original TITLE palette. Main_Menu owns the
+// widened layout; movies and legacy dialogs retain their original viewport.
+static GraphicBufferClass *WideTitle = NULL;
+static bool WideTitleLegacyViewport = true;
+
+int Begin_Wide_Title(void)
+{
+	char const *art = getenv("RA_TITLE_ART");
+	if (WideTitle || SeenBuff.Get_Width() <= 640 || SeenBuff.Get_Height() != 400 ||
+		(art && strcmp(art, "original") == 0)) return 0;
+	CCFileClass file("presentation/title-wide-854x400.idx");
+	if (!file.Is_Available() || file.Size() != 854 * 400) return 0;
+	WideTitle = new GraphicBufferClass(854, 400, NULL, 854 * 400);
+	if (!WideTitle || !WideTitle->Get_Buffer() ||
+		file.Read(WideTitle->Get_Buffer(), 854 * 400) != 854 * 400) {
+		delete WideTitle;
+		WideTitle = NULL;
+		return 0;
+	}
+	WideTitleLegacyViewport = MacSDL_SetLegacyViewport(false);
+	return (SeenBuff.Get_Width() - 640) / 2;
+}
+
+void End_Wide_Title(void)
+{
+	if (!WideTitle) return;
+	delete WideTitle;
+	WideTitle = NULL;
+	Hide_Mouse();
+	MacSDL_SetLegacyViewport(WideTitleLegacyViewport);
+	Load_Title_Page(true);
+	Show_Mouse();
+}
+
 void Load_Title_Page(bool visible)
 {
 #ifdef WIN32
 	Load_Title_Screen("TITLE.PCX", &HidPage, CCPalette);
+	if (WideTitle) WideTitle->Scale(HidPage);
 	if (visible) {
 		HidPage.Blit(SeenPage);
 	}

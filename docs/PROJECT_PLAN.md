@@ -23,6 +23,10 @@ Merged work adds LAN lobby/UDP transport, VQA compatibility improvements, presen
 
 This is a playable development build with several features still exposed through environment variables. The concept images are design assets, not an implemented replacement title screen. LAN is implemented, but the transport smoke test is not evidence of a complete synchronized match.
 
+CRT review (2026-09-09): see [CRT_REVIEW.md](CRT_REVIEW.md). Active shader audited; next proposed CRT work is beam reconstruction, independent fine-mask contrast and brightness calibration. No runtime changes made during review; optional optics and motion experiments follow only after core validation.
+
+Widescreen title integrated (2026-09-09): user approved the generated alternative after the slice study. `presentation/title-wide-854x400.idx` uses the original palette; original Westwood/copyright crops were restored exactly after the user spotted generated-text artifacts. `CODE/INIT.CPP` scopes loading to Main_Menu; `CODE/MENUS.CPP` shifts button geometry consistently. Exit restores legacy viewport and original art. `RA_TITLE_ART=original` works independently of `RA_CRT=0` for physical CRTs. Build and full script suite passed; live fullscreen title verified in `/tmp/ra-wide-title-screen.png` before the lettering correction; corrected source crops checked byte-for-byte. Updated local app: `build/RA Widescreen Playtest.app`. Other aspect ratios fit the 16:9-authored composition. Live dialog transitions and physical CRT testing remain playtest checks. CRT shader improvements remain a proposal.
+
 ## Ordered plan
 
 | Order | Deliverable | Why it helps | Acceptance |
@@ -42,15 +46,19 @@ Direction agreed for exploration on 2026-09-09: preserve original pixels and pal
 
 Evidence: `CODE/DIALOG.CPP:34` already composes `DD-BKGND.SHP`, `DD-EDGE.SHP`, side/top/bottom bars and corner caps. Its background and bar coverage still contains fixed extents; do not assume it handles arbitrary dimensions today. `CODE/INIT.CPP:2485` loads the title as a single `TITLE.PCX`/`TITLE.CPS` image. The sidebar already has separate SHP assets.
 
-First deliverable is a local source-art contact sheet with candidate crop rectangles, followed by static compositions at 4:3, 16:10, 16:9 and 21:9. Build these from the legally obtained local assets, without publishing them or committing extracted game art. No new image generation is needed.
+First study superseded: user rejected repeated side modules and stretching small dialogs. Keep small dialogs compact. Full-screen creation/setup screens should use one full-width original frame and a continuous red command-table background. Title composition is a separate problem.
+
+Latest local review: `build/art-study/v2/index.html`, produced by `build/art-study/compose-v2.py`. Includes setup and split-surround title at 4:3, 16:10, 16:9 and 21:9. Original DD sprites, palette and extracted bitmap fonts are reused; only a clean grid cell repeats, with the unique background plate placed once. Setup is a static first layout using representative existing fields; map preview, difficulty and network player roster are not yet composed. Title moves the exterior shell halves outward and keeps the logo centered; upper silhouette and lower joins still need review/refinement. This is not production-ready title artwork.
+
+Verification: all eight indexed compositions retain the original palette; 4:3 title remains byte-identical; output displayed with 5:6 pixel aspect. 16:9 previews visually inspected. No runtime or hitbox changes; no CRT baked into previews. Extracted assets and helper scripts remain ignored under `build/art-study/`. Next: review this direction, finish one complete creation-screen layout, then integrate its drawing and input rectangles together. Small dialogs retain their original compact dimensions.
 
 - Fixed pieces: logos, lettering, unique illustrations, corner caps, bolts and curved frame segments. Keep their proportions and pixel detail.
 - Repeatable pieces: verified seamless metal/rib strips, flat dark panels, straight borders, and red grid sections. Align grid phase and inspect tile seams; a crop is not automatically seamless.
 - Reposition rather than stretch: centered title/command group, corners anchored to frame bounds, sidebar anchored to the right. Let added space expose battlefield or useful rows when the chosen logical resolution allows it.
-- The title's curved mechanical surround may not tile cleanly. Preserve its central composition and add outer framing from suitable original material if clean cuts cannot be found. Do not mirror lighting, stretch the logo, or invent repeated distinctive damage.
+- The title's curved mechanical surround may not tile cleanly. Test intact repositioned shell sections; do not add repeated side modules. Do not mirror lighting, stretch the logo, or invent repeated distinctive damage.
 - Reuse the existing dialog composition code before introducing a generalized skin system. Derive drawing rectangles and hitboxes from the same layout values.
 
-Accept the visual direction before integration: original-size parity, recognizable original composition, no conspicuous seams, preserved palette/pixel aspect, readable labels, and clean plus CRT inspection. Once selected, integrate one screen first (title/menu), then reuse proven pieces for settings, skirmish setup and other dialogs. In-game settings and controls hints remain the next functional feature; private dial-up multiplayer follows LAN validation.
+Accept the visual direction before integration: original-size parity, recognizable original composition, no conspicuous seams, preserved palette/pixel aspect, readable labels, and clean plus CRT inspection. Once selected, integrate one full-screen creation/setup screen first, then reuse proven pieces for settings, skirmish setup and other dialogs. In-game settings and controls hints remain the next functional feature; private dial-up multiplayer follows LAN validation.
 
 ## Camera specification
 
