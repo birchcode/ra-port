@@ -25,6 +25,14 @@ static bool MacFullscreen = false;
 static bool MacPresenting = false;
 static bool MacCRTCaptured = false;
 static bool MacLegacyViewport = false;
+static bool MacMovieViewport = false;
+
+bool MacSDL_SetMovieViewport(bool enabled)
+{
+	bool previous = MacMovieViewport;
+	MacMovieViewport = enabled;
+	return previous;
+}
 static unsigned char *MacTitleBackground = 0;
 static int MacTitleWidth = 0;
 static int MacTitleHeight = 0;
@@ -227,6 +235,11 @@ static RAAspectViewport mac_renderer_viewport(int source_w, int source_h)
 		RA_CRTGL_GetOutputSize(&output_w, &output_h);
 	} else if (MacRenderer) {
 		SDL_GetRendererOutputSize(MacRenderer, &output_w, &output_h);
+	}
+	if (MacMovieViewport) {
+		// Movies fill the output independently of the gameplay pixel aspect ratio.
+		RAAspectViewport viewport = {0, 0, output_w, output_h};
+		return viewport;
 	}
 	return mac_calculate_viewport(source_w, source_h, output_w, output_h);
 }

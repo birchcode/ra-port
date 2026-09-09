@@ -1,6 +1,6 @@
 # CRT authenticity review — 2026-09-09
 
-Recommendation: aim for a well-adjusted late-1990s VGA computer monitor. Preserve the finer pattern the user approved. Improve beam reconstruction, density and brightness before adding decorative effects. This is an analysis and implementation brief; the running playtest and renderer are unchanged.
+Recommendation: aim for a well-adjusted late-1990s VGA computer monitor. Preserve the finer pattern the user approved. Improve beam reconstruction, density and brightness before adding decorative effects. The original review below records the previous renderer. Implementation status is recorded at the end.
 
 ## What we actually render
 
@@ -44,3 +44,36 @@ Implement only beam reconstruction, independent mask contrast and calibrated bri
 Acceptance: original aspect and hit mapping preserved; fine pattern remains stable; no obvious bands or crawling at 1080p/1440p/2160p and fractional window scales; black/gray/primary ramps retain ordering and neutral balance; small sidebar costs and gold menu labels readable at normal viewing distance. Compare title, map, snowy terrain, explosions and panning with equal broad-area brightness, both at 1:1 capture size and normal display size. Record actual window/drawable/viewport dimensions, panel scaling, render timing and dropped-frame behavior. CPU assertions cover math only; compile and real GPU captures cover the active shader, and physical viewing covers perceptual quality. Do not enable global vsync without rechecking the existing presentation schedule and input latency.
 
 Current uncertainty: no physical reference tube measurement, no new GPU image comparison or live performance benchmark in this review. The user is playing the unchanged build. Visual calibration and the above acceptance checks belong to the implementation deliverable.
+
+
+## Beam implementation — 2026-09-09
+
+Implemented the first bounded deliverable in `PORT/MAC/src/ra_crt_gl.cpp`: 3×5 texel-center reconstruction, brightness-dependent vertical width (0.27–0.43 source rows), destination-footprint variance approximation, normalized reconstruction and energy-based raster contrast. The new path decodes/encodes sRGB explicitly. Mask contrast is independent of reconstruction, retains the approved 3×4 output-pixel tile, uses its discrete mean for energy compensation, and fades at source scales below 3× (fully faded at 1.5×). Peak-white mask/raster contrast fades to preserve SDR brightness instead of compressing highlights. This is a practical light model, not a measured tube reconstruction. Source scales substantially below 1× would need a wider reconstruction filter.
+
+Controls: default CRT uses the new path; `RA_CRT_MODEL=legacy` preserves the previous equations/pattern for A/B. `RA_CRT=0` remains full bypass; `RA_CRT_DEBUG=split` remains clean/processed. `RA_CRT_MASK_STRENGTH=0` now removes only the mask. Runtime diagnostic patterns add `ramp`, `primaries`, `rows`, `columns`, `lines` to the existing flat fields. No aspect, input, simulation, vsync or temporal changes were introduced here. Glass glow and curvature remain deferred until playtest calibration.
+
+Verification: macOS build passed; input shim regression passed; mobile shader stub syntax check passed. `tests/crt_gl_test.cpp` compiles the actual renderer and performs OpenGL framebuffer readback. Black, gray, white and primary fields passed at mask strengths 0/25/50/75/100 at drawable/viewports 1440×1080, 1920×1440, 2880×2160 and 1249×937, with 640×400 source. Absolute per-channel mean-linear error tolerance is 0.006 (includes 8-bit quantization). Dim isolated-line sigma was 0.869 output pixels versus 1.158 for white at 1080p. Diagnostic ramps and isolated lines were visually inspected. Ignored evidence: `build/crt-review/gpu-check.log`, `pattern-*.bmp`, `ramp.png`, `lines.png`. Captures named `title-beam.png` / `title-legacy.png` actually show the automatic startup movie at five seconds, at an 856×400 drawable; they verify real game rendering, not title-label legibility.
+
+GPU draw-plus-finish samples for the final 15-tap path are in the log (roughly 10 ms for 2880×2160 diagnostic patterns on this Mac). These are isolated wall-clock draw samples, not GPU timer queries or gameplay frame-pacing measurements. Full-width 4K, panel/compositor scaling, physical viewing, sidebar costs/gold menu text, snowy gameplay/explosions/panning, dropped frames, and optional subpixel/BGR calibration remain playtest checks. The fixed output-pixel mask plus small-scale attenuation is intentionally retained; virtual-tube density remains deferred until backing/panel calibration is known, consistent with the sampling limitations discussed in the [CRT-Royale documentation](https://docs.libretro.com/shader/crt_royale/).
+
+Run the GPU check from the repository root in a graphical macOS session (no game assets required):
+
+```sh
+mkdir -p build/crt-review
+c++ -std=c++98 -Wno-deprecated-declarations -IPORT/MAC/include $(pkg-config --cflags sdl2) tests/crt_gl_test.cpp $(pkg-config --libs sdl2) -framework OpenGL -o build/crt_gl_test
+./build/crt_gl_test
+```
+
+## Glass-glow investigation — 2026-09-09
+
+User constraint: keep the screen flat. Added an opt-in source-highlight halo in the same shader, reusing all 15 existing texture reads. A compact smooth kernel fades to zero at its support boundary; a peak-channel gate limits excitation to bright source samples and retains highlight hue. Additive light spends available SDR headroom, preserving black/peak white. This approximates glass spread, not energy-conserving HDR optics or a blur of reconstructed phosphor emission. Intermediate bright flat fields can lift slightly; ordinary dark fields remain unchanged. A wider optical halo would require a separate emission buffer, which current results do not justify.
+
+`RA_CRT_GLOW=0..100`: default **0** pending normal-distance playtest; **25** adds up to 2.5% of available headroom and is the trial setting; 100 is the 10% inspection limit. Legacy mode ignores it. Curvature, temporal blending, vsync and game speed are unchanged.
+
+Verification: build, input regression and mobile stub compilation passed. Active GPU checks with glow=25 passed the existing black/gray/white/primary matrix at four resolutions and all mask strengths. An isolated white source pixel adds positive light in all four directions, with no changed pixels beyond three source pixels; a dark gray field is byte-identical off/on. Actual title artwork was decoded using the original palette, rendered through the real shader and inspected off/on at 1920×1080. This checks artwork, not live menu/sidebar text or motion. Evidence: ignored `build/crt-review/glow-flat-check.log`, `glow-check.log`, `glow-art-check.log`, `art-glow-off.png`, `art-glow-25.png`.
+
+The earlier approximately 10 ms draw number could include queued work from a preceding Present. The new benchmark drains work before measurement, then times one real Present (upload/draw/swap) plus completion, with five warmups and 30 samples per setting. On Apple M4 / GL 2.1 Metal, synthetic full-width 3840×2160 medians were 7.34 ms off / 7.54 ms at 25; title-art medians were 7.77 / 7.40 ms. Overhead is small relative to run variation; do not interpret the second result as glow speeding up rendering. Every recorded presentation stayed below 16.67 ms. These hidden-window wall-clock measurements exclude simulation and are not display scanout, compositor, input-latency or dropped-frame evidence.
+
+Run `./build/crt_gl_test --glow` for performance/locality checks; optional second argument is a local 856×400 BMP for real-art sampling and off/on captures. Run `RA_CRT_GLOW=25 ./build/crt_gl_test` for the full flat-field suite. Compile using the command above.
+
+Motion trace: `CODE/CONQUER.CPP` services input and `Map.Render()` while waiting on FrameTimer; `CODE/GSCREEN.CPP` redraws dirty content; primary-surface updates in `PORT/MAC/include/ddraw.h` feed `MacSDL_Present8`; CRT swaps with interval zero. Faster shader completion alone does not establish steady presentation cadence. Next bounded deliverable: full-width gameplay panning with presentation-interval/input measurements and normal-distance sidebar/gold-label/glow comparison. Keep glow opt-in until that check; investigate source cadence/compositor behavior before proposing vsync or any motion treatment.

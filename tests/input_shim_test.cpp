@@ -172,6 +172,16 @@ static void title_background_test()
 	MacSDL_Present8(canvas, 854, 400, 854);
 	assert(SDL_RenderReadPixels(renderer, 0, SDL_PIXELFORMAT_ARGB8888, result, 854 * 4) == 0);
 	assert((result[200 * 854] & 0xffffff) == 0);
+	// Movies stretch the legacy picture to the output; menus restore their bars.
+	assert(!MacSDL_SetMovieViewport(true));
+	MacSDL_Present8(canvas, 854, 400, 854);
+	assert(SDL_RenderReadPixels(renderer, 0, SDL_PIXELFORMAT_ARGB8888, result, 854 * 4) == 0);
+	assert((result[200 * 854] & 0xffffff) == 0x00ff00);
+	assert((result[200 * 854 + 853] & 0xffffff) == 0x00ff00);
+	assert(MacSDL_SetMovieViewport(false));
+	MacSDL_Present8(canvas, 854, 400, 854);
+	assert(SDL_RenderReadPixels(renderer, 0, SDL_PIXELFORMAT_ARGB8888, result, 854 * 4) == 0);
+	assert((result[200 * 854] & 0xffffff) == 0);
 	assert(MacSDL_SetTitleBackground(background, 854, 400));
 	MacSDL_SetLegacyViewport(false);
 	MacSDL_Present8(canvas, 854, 400, 854);

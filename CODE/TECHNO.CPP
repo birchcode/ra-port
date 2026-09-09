@@ -4506,6 +4506,8 @@ void TechnoClass::Base_Is_Attacked(TechnoClass const * enemy)
 	int lp;
 
 	FootClass * defender[16];
+	// The computer handicap is inverted: DIFF_HARD is an Easy opponent.
+	int defenderlimit = House->Difficulty == DIFF_HARD ? 4 : ARRAY_SIZE(defender);
 	memset(defender, '\0', sizeof(defender));
 
 	int value[ARRAY_SIZE(defender)];
@@ -4624,7 +4626,7 @@ void TechnoClass::Base_Is_Attacked(TechnoClass const * enemy)
 				continue;
 			}
 
-			int slot = AI_Defender_Slot(value, count, ARRAY_SIZE(defender), threat);
+			int slot = AI_Defender_Slot(value, count, defenderlimit, threat);
 			if (slot >= 0) {
 				defender[slot] = infantry;
 				value[slot] = threat;
@@ -4692,7 +4694,7 @@ void TechnoClass::Base_Is_Attacked(TechnoClass const * enemy)
 				continue;
 			}
 
-			int slot = AI_Defender_Slot(value, count, ARRAY_SIZE(defender), threat);
+			int slot = AI_Defender_Slot(value, count, defenderlimit, threat);
 			if (slot >= 0) {
 				defender[slot] = unit;
 				value[slot] = threat;
@@ -4736,7 +4738,7 @@ void TechnoClass::Base_Is_Attacked(TechnoClass const * enemy)
 	}
 
 	if (risktotal > desired && enemy->Is_Foot()) {
-		((FootClass *)enemy)->BaseAttackTimer = TICKS_PER_SECOND * 2;
+		((FootClass *)enemy)->BaseAttackTimer = TICKS_PER_SECOND * (House->Difficulty == DIFF_HARD ? 5 : 2);
 	}
 }
 

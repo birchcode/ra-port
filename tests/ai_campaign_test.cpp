@@ -96,6 +96,30 @@ int main() {
   else ++reserve;
  }
  CHECK(assault>=4 && reserve>=3);
+
+ // Identical armies must produce visibly different pressure at each player difficulty.
+ DiffType handicaps[3]={DIFF_HARD,DIFF_NORMAL,DIFF_EASY}; // player Easy, Normal, Hard
+ int wave[3]={4,8,9}, pause[3]={120,30,15}, reaction[3]={5,2,1};
+ for(int level=0;level<3;++level) {
+  soviet->Difficulty=handicaps[level]; soviet->Attack=0; Frame=0;
+  for(int i=0;i<12;++i) {
+   garrison[i]->Coord=base->Coord; garrison[i]->Assign_Target(TARGET_NONE);
+   garrison[i]->Assign_Mission(MISSION_GUARD); garrison[i]->Commence();
+  }
+  if(level==0) {
+   soviet->Tactical_AI();
+   for(int i=0;i<12;++i) CHECK(garrison[i]->Mission!=MISSION_ATTACK);
+  }
+  Frame=TICKS_PER_MINUTE*3;
+  CHECK(soviet->Tactical_AI()==reaction[level]*TICKS_PER_SECOND);
+  for(int i=0;i<12;++i) garrison[i]->Coord=As_Coord(garrison[i]->ArchiveTarget);
+  soviet->Tactical_AI();
+  int launched=0;
+  for(int i=0;i<12;++i) if(garrison[i]->Mission==MISSION_ATTACK) ++launched;
+  CHECK(launched==wave[level]); CHECK((int)soviet->Attack==pause[level]*TICKS_PER_SECOND);
+  printf("Player difficulty %d: wave=%d, pause=%ds, think=%ds\n",level,launched,pause[level],reaction[level]);
+ }
+ soviet->Difficulty=DIFF_NORMAL;
  garrison[5]->Strength=10; soviet->Tactical_AI();
  CHECK(garrison[5]->Mission==MISSION_GUARD_AREA);
  CHECK(Cell_X(Coord_Cell(As_Coord(garrison[5]->ArchiveTarget)))<64);
@@ -103,6 +127,19 @@ int main() {
  soviet->Tactical_AI(); CHECK(soviet->State==STATE_ATTACKED);
  CHECK(garrison[0]->TarCom==attacker->As_Target());
 
+
+ // Easy commits four fresh defenders; Normal can mobilize the whole idle garrison.
+ for(int level=0;level<2;++level) {
+  soviet->Difficulty=handicaps[level];
+  for(int i=0;i<12;++i) {
+   garrison[i]->Strength=100; garrison[i]->Assign_Target(TARGET_NONE);
+   garrison[i]->Assign_Mission(MISSION_GUARD); garrison[i]->Commence();
+  }
+  soviet->Tactical_AI(); int responders=0;
+  for(int i=0;i<12;++i) if(garrison[i]->TarCom==attacker->As_Target()) ++responders;
+  CHECK(responders==(level==0 ? 4 : 12));
+ }
+ soviet->Difficulty=DIFF_NORMAL;
  // Counter-production responds to the enemy composition and protects construction cash.
  soviet->BuildStructure=STRUCT_NONE; soviet->State=STATE_BUILDUP;
  warhead.Modifier[ARMOR_STEEL]=fixed(1,10);
@@ -130,6 +167,10 @@ int main() {
  const_cast<BuildingTypeClass &>(BuildingTypeClass::As_Reference(STRUCT_POWER)).Cost=300;
  CHECK(soviet->AI_Production_Score(&rifle,0)==0);
  soviet->BQuantity[STRUCT_CONST]=0; CHECK(soviet->AI_Production_Score(&rifle,0)>0);
+
+ soviet->Credits=2500; soviet->BuildStructure=STRUCT_NONE; soviet->CurInfantry=soviet->CurBuildings; soviet->CurUnits=0;
+ soviet->Difficulty=DIFF_HARD; CHECK(soviet->AI_Production_Score(&rifle,0)==0);
+ soviet->Difficulty=DIFF_NORMAL; CHECK(soviet->AI_Production_Score(&rifle,0)>0);
  puts("campaign AI: activation, production, rebuilds, defensive posts, stable orders, rally/assault/reserve, retreat, incursion and counter-production passed");
  return 0;
 }

@@ -843,6 +843,7 @@ static bool vqa_present_or_callback(MacVQAState *state)
 #if defined(RA_GAME_RUNTIME)
 	MacSDL_SetTitleBackground(0, 0, 0);
 	bool legacy_viewport = MacSDL_SetLegacyViewport(true);
+	bool movie_viewport = MacSDL_SetMovieViewport(true);
 #endif
 	if (state->config.DrawerCallback) {
 		stop = state->config.DrawerCallback(image, state->current_frame) != 0;
@@ -852,6 +853,7 @@ static bool vqa_present_or_callback(MacVQAState *state)
 	}
 #if defined(RA_GAME_RUNTIME)
 	MacSDL_SetLegacyViewport(legacy_viewport);
+	MacSDL_SetMovieViewport(movie_viewport);
 #endif
 	state->stats.drawn_frames++;
 	return stop;

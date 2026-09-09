@@ -69,3 +69,18 @@ add_executable(lan_udp_test
 )
 ra95_configure_target(lan_udp_test)
 target_compile_definitions(lan_udp_test PRIVATE RA95_NATIVE_SOCKETS WINSOCK_IPX)
+
+# Exercise legacy reliable ordering and ACK handling without a running game.
+add_executable(connection_test
+    tests/connection_test.cpp
+    CODE/CONNECT.CPP
+    CODE/COMBUF.CPP
+)
+ra95_configure_target(connection_test)
+# Quoted game headers take precedence over same-named WWLIB headers.
+target_compile_options(connection_test PRIVATE "-iquote${RA95_CASEFOLD_INCLUDE_ROOT}/code")
+
+if(UNIX AND NOT APPLE)
+    # GCC emits unused legacy file-class vtables from the game umbrella header.
+    target_link_options(connection_test PRIVATE "LINKER:--gc-sections")
+endif()

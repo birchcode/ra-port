@@ -74,10 +74,14 @@ ZoneType HouseClass::AI_Front_Zone(void) const
 int HouseClass::AI_Production_Score(TechnoTypeClass const * type, int quantity) const
 {
 	if (!Can_Build(type, ActLike, true) || type->Cost_Of() > Available_Money()) return 0;
+	// Difficulty is the computer's handicap: DIFF_HARD is the player's Easy opponent.
+	bool easy = Difficulty == DIFF_HARD;
+	int army = CurInfantry + CurUnits;
+	if (easy && army >= max(8, CurBuildings)) return 0;
 	// Reserve cash for a selected economic recovery project instead of starving it with troops.
 	if (State != STATE_ATTACKED && BQuantity[STRUCT_CONST] > 0 && BuildStructure != STRUCT_NONE &&
 		Available_Money() < BuildingTypeClass::As_Reference(BuildStructure).Cost_Of() + 300) return 0;
-	if (State != STATE_ATTACKED && CurInfantry + CurUnits >= max(12, CurBuildings * 3) &&
+	if (State != STATE_ATTACKED && army >= max(12, CurBuildings * (Difficulty == DIFF_EASY ? 4 : 3)) &&
 		Available_Money() < Rule.InfantryReserve) return 0;
 	HouseClass const * enemy = Enemy == HOUSE_NONE ? NULL : As_Pointer(Enemy);
 	int infantry = enemy ? max(1, enemy->CurInfantry) : 3;
@@ -92,11 +96,15 @@ int HouseClass::AI_Production_Score(TechnoTypeClass const * type, int quantity) 
 
 int HouseClass::Tactical_AI(void)
 {
-	if (IsHuman || IsDefeated || !IsBaseBuilding) return TICKS_PER_SECOND * 2;
+	// These are opponent handicaps, reversed from the difficulty shown to the player.
+	bool easy = Difficulty == DIFF_HARD;
+	bool hard = Difficulty == DIFF_EASY;
+	int think = TICKS_PER_SECOND * (easy ? 5 : hard ? 1 : 2);
+	if (IsHuman || IsDefeated || !IsBaseBuilding) return think;
 	if (!Center) Recalc_Center();
 	if (!Center) {
 		if (State != STATE_ENDGAME) { State = STATE_ENDGAME; Do_All_To_Hunt(); }
-		return TICKS_PER_SECOND * 2;
+		return think;
 	}
 
 	DynamicVectorClass<FootClass *> troops;
@@ -187,6 +195,12 @@ int HouseClass::Tactical_AI(void)
 			continue;
 		}
 		if (incursion) {
+			// Easy keeps most of its garrison at their posts instead of mobilizing everyone.
+			if (easy && i >= 4 && !attacking && !Target_Legal(unit->TarCom)) {
+				COORDINATE anchor = assets.Count() == 0 ? Center : assets[i % assets.Count()]->Center_Coord();
+				Hold_Post(unit, Reachable_Post(unit, Offset_Cell(anchor, (int)i % 3 - 1, 2)));
+				continue;
+			}
 			// A raid on remote harvesting should not empty the main base.
 			if (incursion->Distance(Center) > Radius + 8 * CELL_LEPTON_W && i % 3 == 0) {
 				Hold_Post(unit, Reachable_Post(unit, Offset_Cell(Center, (int)i % 3 - 1, 2)));
@@ -215,12 +229,15 @@ int HouseClass::Tactical_AI(void)
 	}
 
 	// Keep a home reserve. Assemble the remainder before releasing a coordinated attack.
-	unsigned reserve = max(3, (int)ready.Count() / 3);
-	bool assemble = !incursion && objective && Attack == 0 && ready.Count() >= reserve + 4 && fighting == 0;
+	unsigned reserve = max(3, (int)ready.Count() / (easy ? 2 : hard ? 4 : 3));
+	unsigned waveend = easy ? min((unsigned)ready.Count(), reserve + 4) : ready.Count();
+	int minimum = easy ? 3 : 4;
+	bool assemble = !incursion && objective && Attack == 0 && ready.Count() >= reserve + minimum && fighting == 0 &&
+		(!easy || Frame >= TICKS_PER_MINUTE * 3);
 	int gathered = 0, strength = 0, assaultsize = 0;
 	for (unsigned i = 0; i < ready.Count(); ++i) {
 		FootClass * unit = ready[i];
-		if (assemble && i >= reserve && Effectiveness(unit->Techno_Type_Class(), objective->Techno_Type_Class()->Armor, false) > 0) {
+		if (assemble && i >= reserve && i < waveend && Effectiveness(unit->Techno_Type_Class(), objective->Techno_Type_Class()->Armor, false) > 0) {
 			CELL post = Reachable_Post(unit, Offset_Cell(Cell_Coord(rally), (int)(i % 3) - 1, (int)(i / 3 % 3) - 1));
 			if (post) {
 				++assaultsize;
@@ -235,20 +252,20 @@ int HouseClass::Tactical_AI(void)
 			Hold_Post(unit, Reachable_Post(unit, post));
 		}
 	}
-	if (assemble && assaultsize >= 4 && gathered * 3 >= assaultsize * 2) {
+	if (assemble && assaultsize >= minimum && gathered * 3 >= assaultsize * 2) {
 		int opposition = 0;
 		for (unsigned i = 0; i < enemies.Count(); ++i) {
 			if (enemies[i]->Is_Weapon_Equipped() && enemies[i]->Distance(objective) < 7 * CELL_LEPTON_W) opposition += max(1, enemies[i]->Risk());
 		}
 		if (strength >= opposition * 5 / 4) {
-			for (unsigned i = reserve; i < ready.Count(); ++i) {
+			for (unsigned i = reserve; i < waveend; ++i) {
 				FootClass * unit = ready[i];
 				if (unit->Distance(Cell_Coord(rally)) > 4 * CELL_LEPTON_W ||
 					Effectiveness(unit->Techno_Type_Class(), objective->Techno_Type_Class()->Armor, false) == 0) continue;
 				unit->Assign_Mission(MISSION_ATTACK); unit->Assign_Target(objective->As_Target());
 				unit->Assign_Destination(TARGET_NONE); unit->Commence();
 			}
-			for (int i = 0; i < Aircraft.Count(); ++i) {
+			for (int i = 0; !easy && i < Aircraft.Count(); ++i) {
 				AircraftClass * aircraft = Aircraft.Ptr(i);
 				if (Present(aircraft) && aircraft->House == this && !aircraft->Team.Is_Valid() && aircraft->Ammo > 0 &&
 					(aircraft->Mission == MISSION_GUARD || aircraft->Mission == MISSION_GUARD_AREA) &&
@@ -256,7 +273,7 @@ int HouseClass::Tactical_AI(void)
 					aircraft->Assign_Mission(MISSION_ATTACK); aircraft->Assign_Target(objective->As_Target()); aircraft->Commence();
 				}
 			}
-			Attack = TICKS_PER_SECOND * 30;
+			Attack = TICKS_PER_SECOND * (easy ? 120 : hard ? 15 : 30);
 		}
 	}
 	// A single scout searches legal map positions when no opponent has been discovered.
@@ -268,5 +285,5 @@ int HouseClass::Tactical_AI(void)
 		CELL post = Reachable_Post(scout, XY_Cell(sx, sy));
 		if (post) { scout->ArchiveTarget = ::As_Target(post); scout->Assign_Mission(MISSION_MOVE); scout->Assign_Destination(::As_Target(post)); scout->Commence(); }
 	}
-	return TICKS_PER_SECOND * 2;
+	return think;
 }

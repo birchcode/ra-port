@@ -321,7 +321,11 @@ RA_FULLSCREEN=1 RA_WIDESCREEN=1 RA_CRT=1 scripts/run_linux_dev.sh
 
 CRT mode uses a desktop OpenGL 2.1 compatibility shader; mobile keeps its SDL renderer. CRT mode displays the original 640x400 image at its intended 4:3 monitor aspect. For an A/B comparison, add `RA_CRT_DEBUG=split`; the left half remains clean and the right half receives the CRT treatment.
 The default RGB phosphor pattern uses a finer 3×4 output-pixel repeat. The optional physical-subpixel mode keeps its original pixel calibration.
-Set `RA_CRT_MASK_STRENGTH=0..100` to calibrate phosphor visibility for the monitor; the legibility-balanced default is `25`, while `100` exposes fully separated RGB elements for close inspection.
+Set `RA_CRT_MASK_STRENGTH=0..100` to adjust only phosphor contrast (default `25`). At zero, beam reconstruction still runs; use `RA_CRT=0` for a complete bypass. Bright source rows have wider beams, and the shader uses sRGB light conversion without exponential highlight compression. Phosphor contrast fades near peak white to preserve SDR brightness, and at small source-to-output scales to reduce interference. The output-pixel pitch remains fixed; this is not physical panel-density calibration.
+
+Use `RA_CRT_MODEL=legacy` for the previous fine-pattern shader. `RA_CRT_DEBUG=split` compares either model against clean pixels. Diagnostics: `RA_CRT_TEST=white|gray|red|green|blue|ramp|primaries|rows|columns|lines`; `RA_CRT_CAPTURE=/absolute/path.bmp` saves the displayed framebuffer after five seconds. The optional glass-glow experiment reuses beam samples for a small two-dimensional halo around highlights: `RA_CRT_GLOW=25` is subtle; `0` (default) disables it; `100` is the inspection maximum. It preserves black and peak white and uses available SDR headroom, rather than an HDR optical simulation. The legacy model ignores this setting. The screen stays flat; no temporal trails are added. See [CRT review and verification](docs/CRT_REVIEW.md).
+
+Try it with `RA_CRT=1 RA_CRT_GLOW=25 scripts/run_mac_dev.sh --no-build` (or the Linux run script).
 
 ## Title artwork and physical CRTs
 

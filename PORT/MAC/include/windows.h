@@ -1332,7 +1332,9 @@ static inline BOOL SetThreadPriority(HANDLE, int) { return TRUE; }
 
 static inline void InitializeCriticalSection(LPCRITICAL_SECTION section)
 {
-	if (!section || section->initialized) return;
+	if (!section) return;
+	// Fresh Windows critical-section storage need not be zero-initialized.
+	// Inspecting initialized here can skip creation of the recursive mutex.
 	pthread_mutexattr_t attr;
 	pthread_mutexattr_init(&attr);
 	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
