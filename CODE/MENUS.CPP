@@ -434,7 +434,6 @@ int Do_Menu(char const ** strings, bool )
  *=========================================================================*/
 int Main_Menu(unsigned long )
 {
-	int const title_offset = Begin_Wide_Title();
 	/*
 	**	Dialog & button dimensions
 	*/
@@ -453,18 +452,18 @@ int Main_Menu(unsigned long )
 //	#endif
 #endif	//WIN32
 #endif	//FIXIT_VERSION_3
-	int	d_dialog_x = 85 * RESFACTOR + title_offset;
+	int	d_dialog_x = 85 * RESFACTOR;
 	int	d_dialog_y = 75 * RESFACTOR;
 	int	d_dialog_cx = d_dialog_x + (d_dialog_w / 2);
 
 	int	d_start_w = 118 * RESFACTOR;
 	int	d_start_h = 9 * RESFACTOR;
-	int	d_start_x = 102 * RESFACTOR + title_offset;
+	int	d_start_x = 102 * RESFACTOR;
 #ifndef FIXIT_VERSION_3			//	Removed button from main menu.
 #if defined(WIN32) && !defined(INTERNET_OFF) // Denzil 5/1/98 - no internet play
 	int	d_internet_w = 118 * RESFACTOR;
 	int	d_internet_h = 9 * RESFACTOR;
-	int	d_internet_x = 102 * RESFACTOR + title_offset;
+	int	d_internet_x = 102 * RESFACTOR;
 #endif	//WIN32
 #endif
 
@@ -476,19 +475,19 @@ int Main_Menu(unsigned long )
 
 	int	d_load_w = 118 * RESFACTOR;
 	int	d_load_h = 9 * RESFACTOR;
-	int	d_load_x = 102 * RESFACTOR + title_offset;
+	int	d_load_x = 102 * RESFACTOR;
 
 	int	d_multi_w = 118 * RESFACTOR;
 	int	d_multi_h = 9 * RESFACTOR;
-	int	d_multi_x = 102 * RESFACTOR + title_offset;
+	int	d_multi_x = 102 * RESFACTOR;
 
 	int	d_intro_w = 118 * RESFACTOR;
 	int	d_intro_h = 9 * RESFACTOR;
-	int	d_intro_x = 102 * RESFACTOR + title_offset;
+	int	d_intro_x = 102 * RESFACTOR;
 
 	int	d_exit_w = 118 * RESFACTOR;    //changed value to 118 V.Grippi
 	int	d_exit_h = 9 * RESFACTOR;
-	int     d_exit_x = 102 *RESFACTOR + title_offset;   //Added V.Grippi
+	int     d_exit_x = 102 *RESFACTOR;   //Added V.Grippi
 
 	int starty = d_dialog_y + (12 * RESFACTOR);
 
@@ -981,6 +980,5 @@ int Main_Menu(unsigned long )
 
 	Options.Set_Score_Volume(oldvolume, false);
 
-	End_Wide_Title();
 	return(retval);
 }

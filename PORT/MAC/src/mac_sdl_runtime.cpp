@@ -25,6 +25,9 @@ static bool MacFullscreen = false;
 static bool MacPresenting = false;
 static bool MacCRTCaptured = false;
 static bool MacLegacyViewport = false;
+static unsigned char *MacTitleBackground = 0;
+static int MacTitleWidth = 0;
+static int MacTitleHeight = 0;
 static SDL_threadID MacMainThread = 0;
 static uint32_t MacPalette[256];
 static MSG MacMessageQueue[512];
@@ -171,6 +174,11 @@ static int mac_crt_test_pattern(void)
 	if (strcmp(value, "red") == 0) return 3;
 	if (strcmp(value, "green") == 0) return 4;
 	if (strcmp(value, "blue") == 0) return 5;
+	if (strcmp(value, "ramp") == 0) return 6;
+	if (strcmp(value, "rows") == 0) return 7;
+	if (strcmp(value, "columns") == 0) return 8;
+	if (strcmp(value, "lines") == 0) return 9;
+	if (strcmp(value, "primaries") == 0) return 10;
 	return 0;
 }
 
@@ -198,6 +206,15 @@ static RAAspectViewport mac_window_viewport(void)
 	int window_h = MacHeight;
 	if (MacWindow) {
 		SDL_GetWindowSize(MacWindow, &window_w, &window_h);
+	}
+	if (MacLegacyViewport && MacTitleBackground && MacTitleWidth == MacWidth && MacTitleHeight == MacHeight) {
+		RAAspectViewport full = mac_calculate_viewport(MacWidth, MacHeight, window_w, window_h);
+		int offset = (MacWidth - 640) / 2;
+		int left = offset * full.w / MacWidth;
+		int right = (offset + 640) * full.w / MacWidth;
+		full.x += left;
+		full.w = right - left;
+		return full;
 	}
 	return mac_calculate_viewport(mac_content_width(), MacHeight, window_w, window_h);
 }
@@ -729,8 +746,23 @@ bool MacSDL_SetGameMode(int *width, int *height)
 	return mac_sdl_set_mode(width, height, true);
 }
 
+bool MacSDL_SetTitleBackground(unsigned char const *pixels, int width, int height)
+{
+	free(MacTitleBackground);
+	MacTitleBackground = 0;
+	MacTitleWidth = MacTitleHeight = 0;
+	if (!pixels || width <= 640 || width > 8192 || height != 400) return false;
+	MacTitleBackground = (unsigned char *)malloc((size_t)width * height);
+	if (!MacTitleBackground) return false;
+	memcpy(MacTitleBackground, pixels, (size_t)width * height);
+	MacTitleWidth = width;
+	MacTitleHeight = height;
+	return true;
+}
+
 bool MacSDL_SetLegacyViewport(bool enabled)
 {
+	if (!enabled) MacSDL_SetTitleBackground(0, 0, 0);
 	bool previous = MacLegacyViewport;
 	MacLegacyViewport = enabled;
 	if (enabled) MacSDL_SetCameraInput(false);
@@ -739,6 +771,7 @@ bool MacSDL_SetLegacyViewport(bool enabled)
 
 void MacSDL_Shutdown(void)
 {
+	MacSDL_SetTitleBackground(0, 0, 0);
 	MacSDL_SetCameraInput(false);
 	if (MacFrame) {
 		free(MacFrame);
@@ -1029,16 +1062,24 @@ void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pit
 		MacFramePixels = needed;
 	}
 
+	bool title_background = MacLegacyViewport && MacTitleBackground &&
+		MacTitleWidth == width && MacTitleHeight == height;
+	int title_offset = (width - 640) / 2;
 	for (int y = 0; y < height; ++y) {
 		unsigned char const *src = pixels + (y * pitch);
 		uint32_t *dst = MacFrame + (y * width);
 		for (int x = 0; x < width; ++x) {
-			dst[x] = MacPalette[src[x]];
+			unsigned char index = src[x];
+			if (title_background) {
+				index = x >= title_offset && x < title_offset + 640
+					? src[x - title_offset] : MacTitleBackground[y * width + x];
+			}
+			dst[x] = MacPalette[index];
 		}
 	}
 
 	if (RA_CRTGL_IsReady()) {
-		int content_width = mac_content_width();
+		int content_width = title_background ? width : mac_content_width();
 		RAAspectViewport viewport = mac_renderer_viewport(content_width, height);
 		RACRTGLConfig config;
 		config.strength = mac_crt_mask_strength();
@@ -1056,7 +1097,7 @@ void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pit
 	}
 
 	SDL_UpdateTexture(MacTexture, 0, MacFrame, width * (int)sizeof(uint32_t));
-	int content_width = mac_content_width();
+	int content_width = title_background ? width : mac_content_width();
 	RAAspectViewport viewport = mac_renderer_viewport(content_width, height);
 	SDL_Rect source = {0, 0, content_width, height};
 	SDL_Rect destination;

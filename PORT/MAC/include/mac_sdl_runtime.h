@@ -5,6 +5,7 @@
 bool MacSDL_SetMode(int width, int height);
 bool MacSDL_SetGameMode(int *width, int *height);
 bool MacSDL_SetLegacyViewport(bool enabled);
+bool MacSDL_SetTitleBackground(unsigned char const *pixels, int width, int height);
 bool MacSDL_SetFullscreen(bool enabled);
 bool MacSDL_GetFullscreen(void);
 void MacSDL_Shutdown(void);

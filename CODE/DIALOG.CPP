@@ -9,6 +9,7 @@
  */
 
 #include	"function.h"
+#include "mac_sdl_runtime.h"
 
 #include   "defines.h"   //VG 10/17/96
 
@@ -33,6 +34,7 @@ unsigned char * Font_Palette(int color);
  *=============================================================================================*/
 void Dialog_Box(int x, int y, int w, int h)
 {
+	if (w >= 640 && h >= 380) MacSDL_SetTitleBackground(NULL, 0, 0);
 // Try to expand the box a little taller and a little wider to make room for
 // the dialog box graphics in the DOS version.
 #ifndef WIN32

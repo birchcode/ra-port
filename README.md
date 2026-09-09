@@ -325,7 +325,7 @@ Set `RA_CRT_MASK_STRENGTH=0..100` to calibrate phosphor visibility for the monit
 
 ## Title artwork and physical CRTs
 
-Widescreen main menus use `presentation/title-wide-854x400.idx` when available: generated wider artwork quantized to the original TITLE palette, with the original Westwood plaque and copyright pixels restored. Buttons and pointer coordinates share the wider viewport. Leaving the main menu restores the original artwork and legacy dialog layout. Classic 640×400 mode, or a missing/invalid optional asset, keeps the original title. Other wider ratios fit the 16:9-authored composition to the logical viewport.
+Widescreen main menus use `presentation/title-wide-854x400.idx` when available: generated wider artwork quantized to the original TITLE palette, with the original Westwood plaque and copyright pixels restored. The wider background is composed from the first title frame and stays behind compact dialogs, including New Game. Controls keep their original 640-pixel canvas, centered with matching pointer coordinates. Gameplay, movies and full-screen dialog backgrounds clear the title wings. Classic 640×400 mode, or a missing/invalid optional asset, keeps the original title. Other wider ratios fit the 16:9-authored composition to the logical viewport.
 
 Set `RA_TITLE_ART=original` to force the original title independently of widescreen gameplay. For a physical CRT, use `RA_CRT=0 RA_TITLE_ART=original`; add `RA_WIDESCREEN=0` for the classic layout. Display connections do not reliably identify CRT hardware, so this choice is explicit. The simulated CRT shader remains separately opt-in.
 

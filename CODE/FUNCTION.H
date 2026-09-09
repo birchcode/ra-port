@@ -950,8 +950,6 @@ ArmorType Armor_From_Name(char const * name);
 ** Winstub.cpp
 */
 void Load_Title_Screen(char *name, GraphicViewPortClass *video_page, unsigned char *palette);
-int Begin_Wide_Title(void);
-void End_Wide_Title(void);
 
 /*
 ** Egos.CPP

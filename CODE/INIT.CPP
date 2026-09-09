@@ -2482,53 +2482,32 @@ void Init_Random(void)
  * HISTORY:                                                                                    *
  *   06/03/1996 JLB : Created.                                                                 *
  *=============================================================================================*/
-// Optional local art uses the original TITLE palette. Main_Menu owns the
-// widened layout; movies and legacy dialogs retain their original viewport.
-static GraphicBufferClass *WideTitle = NULL;
-static bool WideTitleLegacyViewport = true;
-
-int Begin_Wide_Title(void)
+// Keep legacy controls in their 640-wide coordinate space. Presentation adds
+// the title wings around that centered canvas, including compact dialogs.
+static void Load_Wide_Title(void)
 {
+	MacSDL_SetTitleBackground(NULL, 0, 0);
 	char const *art = getenv("RA_TITLE_ART");
-	if (WideTitle || SeenBuff.Get_Width() <= 640 || SeenBuff.Get_Height() != 400 ||
-		(art && strcmp(art, "original") == 0)) {
-		fprintf(stderr, "Title: original (viewport %dx%d, preference %s)\n",
-			SeenBuff.Get_Width(), SeenBuff.Get_Height(), art ? art : "auto");
-		return 0;
-	}
+	int width = SeenBuff.Get_Width();
+	if (width <= 640 || SeenBuff.Get_Height() != 400 ||
+		(art && strcmp(art, "original") == 0)) return;
 	CCFileClass file("presentation/title-wide-854x400.idx");
-	if (!file.Is_Available() || file.Size() != 854 * 400) {
-		fprintf(stderr, "Title: original (wide artwork missing or invalid: %s)\n", file.File_Name());
-		return 0;
-	}
-	WideTitle = new GraphicBufferClass(854, 400, NULL, 854 * 400);
-	if (!WideTitle || !WideTitle->Get_Buffer() ||
-		file.Read(WideTitle->Get_Buffer(), 854 * 400) != 854 * 400) {
-		delete WideTitle;
-		WideTitle = NULL;
-		return 0;
-	}
-	fprintf(stderr, "Title: wide artwork loaded, viewport %dx%d\n", SeenBuff.Get_Width(), SeenBuff.Get_Height());
-	WideTitleLegacyViewport = MacSDL_SetLegacyViewport(false);
-	return (SeenBuff.Get_Width() - 640) / 2;
-}
-
-void End_Wide_Title(void)
-{
-	if (!WideTitle) return;
-	delete WideTitle;
-	WideTitle = NULL;
-	Hide_Mouse();
-	MacSDL_SetLegacyViewport(WideTitleLegacyViewport);
-	Load_Title_Page(true);
-	Show_Mouse();
+	if (!file.Is_Available() || file.Size() != 854 * 400) return;
+	GraphicBufferClass source(854, 400, NULL, 854 * 400);
+	GraphicBufferClass scaled(width, 400, NULL, width * 400);
+	if (!source.Get_Buffer() || !scaled.Get_Buffer() ||
+		file.Read(source.Get_Buffer(), 854 * 400) != 854 * 400) return;
+	source.Scale(scaled);
+	if (!MacSDL_SetTitleBackground((unsigned char const *)scaled.Get_Buffer(), width, 400)) return;
+	scaled.Blit(HidPage, (width - 640) / 2, 0, 0, 0, 640, 400);
+	fprintf(stderr, "Title: wide background loaded, centered legacy canvas, viewport %dx400\n", width);
 }
 
 void Load_Title_Page(bool visible)
 {
 #ifdef WIN32
 	Load_Title_Screen("TITLE.PCX", &HidPage, CCPalette);
-	if (WideTitle) WideTitle->Scale(HidPage);
+	Load_Wide_Title();
 	if (visible) {
 		HidPage.Blit(SeenPage);
 	}

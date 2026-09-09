@@ -841,6 +841,7 @@ static bool vqa_present_or_callback(MacVQAState *state)
 
 	bool stop = false;
 #if defined(RA_GAME_RUNTIME)
+	MacSDL_SetTitleBackground(0, 0, 0);
 	bool legacy_viewport = MacSDL_SetLegacyViewport(true);
 #endif
 	if (state->config.DrawerCallback) {

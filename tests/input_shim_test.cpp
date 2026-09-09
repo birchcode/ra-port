@@ -140,6 +140,46 @@ static void camera_input_test()
 	MacSDL_Shutdown();
 }
 
+static void title_background_test()
+{
+	assert(MacSDL_SetMode(854, 400));
+	MacSDL_SetLegacyViewport(true);
+	SDL_Window *window = 0;
+	for (unsigned id = 1; id < 16 && !window; ++id) window = SDL_GetWindowFromID(id);
+	assert(window);
+	SDL_Renderer *renderer = SDL_GetRenderer(window);
+	assert(renderer);
+	PALETTEENTRY palette[256];
+	memset(palette, 0, sizeof(palette));
+	palette[1].peRed = 255;
+	palette[2].peGreen = 255;
+	MacSDL_SetPalette(palette, 256);
+	static unsigned char background[854 * 400];
+	static unsigned char canvas[854 * 400];
+	static unsigned int result[854 * 400];
+	memset(background, 1, sizeof(background));
+	memset(canvas, 2, sizeof(canvas));
+	assert(MacSDL_SetTitleBackground(background, 854, 400));
+	// Re-entering the legacy menu must not discard its title wings.
+	MacSDL_SetLegacyViewport(true);
+	MacSDL_Present8(canvas, 854, 400, 854);
+	assert(SDL_RenderReadPixels(renderer, 0, SDL_PIXELFORMAT_ARGB8888, result, 854 * 4) == 0);
+	assert((result[200 * 854] & 0xffffff) == 0xff0000);
+	assert((result[200 * 854 + 107] & 0xffffff) == 0x00ff00);
+	assert((result[200 * 854 + 746] & 0xffffff) == 0x00ff00);
+	assert((result[200 * 854 + 747] & 0xffffff) == 0xff0000);
+	MacSDL_SetTitleBackground(0, 0, 0);
+	MacSDL_Present8(canvas, 854, 400, 854);
+	assert(SDL_RenderReadPixels(renderer, 0, SDL_PIXELFORMAT_ARGB8888, result, 854 * 4) == 0);
+	assert((result[200 * 854] & 0xffffff) == 0);
+	assert(MacSDL_SetTitleBackground(background, 854, 400));
+	MacSDL_SetLegacyViewport(false);
+	MacSDL_Present8(canvas, 854, 400, 854);
+	assert(SDL_RenderReadPixels(renderer, 0, SDL_PIXELFORMAT_ARGB8888, result, 854 * 4) == 0);
+	assert((result[200 * 854] & 0xffffff) == 0x00ff00);
+	MacSDL_Shutdown();
+}
+
 static char to_ascii(UINT vk, bool shift, bool caps)
 {
 	BYTE state[256];
@@ -169,6 +209,7 @@ int main()
 	assert(to_ascii(VK_NONE_DE, true, false) == '"');
 
 	camera_input_test();
+	title_background_test();
 
 	return 0;
 }
