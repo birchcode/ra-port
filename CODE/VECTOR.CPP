@@ -641,3 +641,6 @@ template class VectorClass<unsigned char>;
 template class VectorClass<char const *>;
 template class VectorClass<char *>;
 template class VectorClass<void *>;
+
+template class VectorClass<FootClass *>;
+template class VectorClass<TechnoClass *>;

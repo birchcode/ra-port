@@ -1132,7 +1132,9 @@ ResultType BuildingClass::Take_Damage(int & damage, int distance, WarheadType wa
 				**	Add the building to the base prebuild list if allowed. This will force
 				**	the computer to rebuild this structure if it can.
 				*/
-				if (IsToRebuild && Class->Level != -1 && Base.House == House->Class->House && Base.Get_Node(this) == 0) {
+				if ((IsToRebuild || (Session.Type == GAME_NORMAL && !House->IsHuman && House->IsBaseBuilding &&
+					!Class->IsInsignificant && !Trigger.Is_Valid())) &&
+					Class->Level != -1 && Base.House == House->Class->House && Base.Get_Node(this) == 0) {
 //				if (IsToRebuild && Class->IsBuildable && Base.House == House->Class->House && Base.Get_Node(this) == 0) {
 					Base.Nodes.Add(BaseNodeClass(Class->Type, Coord_Cell(Coord)));
 				}

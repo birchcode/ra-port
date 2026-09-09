@@ -433,6 +433,8 @@ cxx_cmd=(
   -std=gnu++98
   -include "$ROOT_DIR/PORT/MAC/include/legacy_compiler_compat.h"
 )
+"${cxx_cmd[@]}" "$ROOT_DIR/tests/ai_defense_test.cpp" -o "$tmpdir/ai_defense_test"
+"$tmpdir/ai_defense_test"
 inc_port=(-I"$tmpdir/casefold/port/mac/include" -I"$ROOT_DIR/PORT/MAC/include")
 inc_code=(-I"$tmpdir/casefold/code" -I"$ROOT_DIR/CODE")
 inc_win_include=(-I"$tmpdir/casefold/win32lib/include" -I"$ROOT_DIR/WIN32LIB/INCLUDE")

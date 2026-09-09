@@ -664,7 +664,7 @@ class HouseClass {
 		FactoryClass * Fetch_Factory(RTTIType rtti) const;
 		void Set_Factory(RTTIType rtti, FactoryClass * factory);
 
-		bool Can_Build(ObjectTypeClass const * type, HousesType house) const;
+		bool Can_Build(ObjectTypeClass const * type, HousesType house, bool autonomous = false) const;
 
 		int  Get_Quantity(AircraftType aircraft);
 		int  Get_Quantity(StructType building);
@@ -779,6 +779,9 @@ class HouseClass {
 
 	private:
 		void Silo_Redraw_Check(long oldtib, long oldcap);
+		int Tactical_AI(void);
+		int AI_Production_Score(TechnoTypeClass const * type, int quantity) const;
+		ZoneType AI_Front_Zone(void) const;
 		int AI_Building(void);
 		int AI_Unit(void);
 		int AI_Vessel(void);

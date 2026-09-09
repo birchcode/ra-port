@@ -301,3 +301,6 @@ template class DynamicVectorClass<char *>;
 template class DynamicVectorClass<void *>;
 
 /************************** end of dynavec.cpp *****************************/
+
+template class DynamicVectorClass<FootClass *>;
+template class DynamicVectorClass<TechnoClass *>;

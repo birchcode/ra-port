@@ -656,7 +656,7 @@ HouseStaticClass::HouseStaticClass(void) :
  *   10/23/1996 JLB : Hack to allow Tanya to both sides in multiplay.                          *
  *   11/04/1996 JLB : Computer uses prerequisite record.                                       *
  *=============================================================================================*/
-bool HouseClass::Can_Build(ObjectTypeClass const * type, HousesType house) const
+bool HouseClass::Can_Build(ObjectTypeClass const * type, HousesType house, bool autonomous) const
 {
 	assert(Houses.ID(this) == ID);
 	assert(type != NULL);
@@ -694,9 +694,9 @@ bool HouseClass::Can_Build(ObjectTypeClass const * type, HousesType house) const
 #endif
 
 	/*
-	**	The computer can always build everything.
+	**	Scripted campaign requests may bypass prerequisites. Autonomous choices may not.
 	*/
-	if (!IsHuman && Session.Type == GAME_NORMAL) return(true);
+	if (!autonomous && !IsHuman && Session.Type == GAME_NORMAL) return(true);
 
 	/*
 	**	Special hack to get certain objects to exist for both sides in the game.
@@ -804,6 +804,10 @@ void HouseClass::AI(void)
 	**	production and team creation as well. This is also true if the IQ is high enough to
 	**	being base building.
 	*/
+	if (!IsHuman && Session.Type == GAME_NORMAL && PlayerPtr && !Is_Ally(PlayerPtr) &&
+		(ActiveBScan & (STRUCTF_CONST|STRUCTF_BARRACKS|STRUCTF_TENT|STRUCTF_WEAP))) {
+		IsBaseBuilding = true;
+	}
 	if (IsBaseBuilding || IQ >= Rule.IQProduction) {
 		IsBaseBuilding = true;
 		IsStarted = true;
@@ -1187,7 +1191,7 @@ void HouseClass::AI(void)
 	**	Perform any expert system AI processing.
 	*/
 	if (IsBaseBuilding && AITimer == 0) {
-		AITimer = Expert_AI();
+		AITimer = IsHuman ? Expert_AI() : Tactical_AI();
 	}
 
 	if (!IsBaseBuilding && State == STATE_ENDGAME) {
@@ -4276,6 +4280,18 @@ COORDINATE HouseClass::Find_Build_Location(BuildingClass * building) const
 		}
 	}
 
+	ZoneType front = AI_Front_Zone();
+	if (front != ZONE_NONE) {
+		if (antiair || antiarmor || antiinfantry) {
+			zonerating[front] += 100;
+		} else {
+			zonerating[ZONE_CORE] += 100;
+			ZoneType rear = front == ZONE_NORTH ? ZONE_SOUTH : front == ZONE_SOUTH ? ZONE_NORTH :
+				front == ZONE_EAST ? ZONE_WEST : ZONE_EAST;
+			zonerating[rear] += 75;
+		}
+	}
+
 	/*
 	**	Now that each zone has been given a desirability rating, find the zone
 	**	with the greatest value and try to place the building in that zone.
@@ -5308,6 +5324,7 @@ int HouseClass::AI_Building(void)
 		BaseNodeClass * node = Base.Next_Buildable();
 		if (node) {
 			BuildStructure = node->Type;
+			return(TICKS_PER_SECOND);
 		}
 	}
 
@@ -5347,17 +5364,17 @@ int HouseClass::AI_Building(void)
 		**	money available.
 		*/
 		b = &BuildingTypeClass::As_Reference(STRUCT_ADVANCED_POWER);
-		if (Can_Build(b, ActLike) && Power <= Drain+Rule.PowerSurplus && b->Cost_Of() < money) {
+		if (Can_Build(b, ActLike, true) && Power <= Drain+Rule.PowerSurplus && b->Cost_Of() < money) {
 			choiceptr = BuildChoice.Alloc();
 			if (choiceptr != NULL) {
-				*choiceptr = BuildChoiceClass(BQuantity[STRUCT_REFINERY] == 0 ? URGENCY_LOW : URGENCY_MEDIUM, b->Type);
+				*choiceptr = BuildChoiceClass(Power < Drain ? URGENCY_CRITICAL : (BQuantity[STRUCT_REFINERY] == 0 ? URGENCY_LOW : URGENCY_MEDIUM), b->Type);
 			}
 		} else {
 			b = &BuildingTypeClass::As_Reference(STRUCT_POWER);
-			if (Can_Build(b, ActLike) && Power <= Drain+Rule.PowerSurplus && b->Cost_Of() < money) {
+			if (Can_Build(b, ActLike, true) && Power <= Drain+Rule.PowerSurplus && b->Cost_Of() < money) {
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr != NULL) {
-					*choiceptr = BuildChoiceClass(BQuantity[STRUCT_REFINERY] == 0 ? URGENCY_LOW : URGENCY_MEDIUM, b->Type);
+					*choiceptr = BuildChoiceClass(Power < Drain ? URGENCY_CRITICAL : (BQuantity[STRUCT_REFINERY] == 0 ? URGENCY_LOW : URGENCY_MEDIUM), b->Type);
 				}
 			}
 		}
@@ -5368,7 +5385,7 @@ int HouseClass::AI_Building(void)
 		unsigned int current = BQuantity[STRUCT_REFINERY];
 		if (!IsTiberiumShort && current < Round_Up(Rule.RefineryRatio*fixed(CurBuildings)) && current < Rule.RefineryLimit) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_REFINERY);
-			if (Can_Build(b, ActLike) && (money > b->Cost_Of() || hasincome)) {
+			if (Can_Build(b, ActLike, true) && (money > b->Cost_Of() || hasincome)) {
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr != NULL) {
 					*choiceptr = BuildChoiceClass(BQuantity[STRUCT_REFINERY] == 0 ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
@@ -5383,14 +5400,14 @@ int HouseClass::AI_Building(void)
 		current = BQuantity[STRUCT_BARRACKS] + BQuantity[STRUCT_TENT];
 		if (current < Round_Up(Rule.BarracksRatio*fixed(CurBuildings)) && current < Rule.BarracksLimit && (money > 300 || hasincome)) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_BARRACKS);
-			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+			if (Can_Build(b, ActLike, true) && (b->Cost_Of() < money || hasincome)) {
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr != NULL) {
 					*choiceptr = BuildChoiceClass(current > 0 ? URGENCY_LOW : URGENCY_MEDIUM, b->Type);
 				}
 			} else {
 				b = &BuildingTypeClass::As_Reference(STRUCT_TENT);
-				if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+				if (Can_Build(b, ActLike, true) && (b->Cost_Of() < money || hasincome)) {
 					choiceptr = BuildChoice.Alloc();
 					if (choiceptr != NULL) {
 						*choiceptr = BuildChoiceClass(current > 0 ? URGENCY_LOW : URGENCY_MEDIUM, b->Type);
@@ -5405,7 +5422,7 @@ int HouseClass::AI_Building(void)
 		current = BQuantity[STRUCT_KENNEL];
 		if (current < 1 && (money > 300 || hasincome)) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_KENNEL);
-			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+			if (Can_Build(b, ActLike, true) && (b->Cost_Of() < money || hasincome)) {
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr != NULL) {
 					*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
@@ -5419,7 +5436,7 @@ int HouseClass::AI_Building(void)
 		current = BQuantity[STRUCT_GAP];
 		if (current < 1 && Power_Fraction() >= 1 && hasincome) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_GAP);
-			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+			if (Can_Build(b, ActLike, true) && (b->Cost_Of() < money || hasincome)) {
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr != NULL) {
 					*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
@@ -5434,7 +5451,7 @@ int HouseClass::AI_Building(void)
 		current = BQuantity[STRUCT_WEAP];
 		if (current < Round_Up(Rule.WarRatio*fixed(CurBuildings)) && current < Rule.WarLimit && (money > 2000 || hasincome)) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_WEAP);
-			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+			if (Can_Build(b, ActLike, true) && (b->Cost_Of() < money || hasincome)) {
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr != NULL) {
 					*choiceptr = BuildChoiceClass(current > 0 ? URGENCY_LOW : URGENCY_MEDIUM, b->Type);
@@ -5448,7 +5465,7 @@ int HouseClass::AI_Building(void)
 		current = BQuantity[STRUCT_PILLBOX] + BQuantity[STRUCT_CAMOPILLBOX] + BQuantity[STRUCT_TURRET] + BQuantity[STRUCT_FLAME_TURRET];
 		if (current < Round_Up(Rule.DefenseRatio*fixed(CurBuildings)) && current < Rule.DefenseLimit) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_FLAME_TURRET);
-			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+			if (Can_Build(b, ActLike, true) && (b->Cost_Of() < money || hasincome)) {
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr != NULL) {
 					*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
@@ -5456,7 +5473,7 @@ int HouseClass::AI_Building(void)
 			} else {
 				if (Percent_Chance(50)) {
 					b = &BuildingTypeClass::As_Reference(STRUCT_PILLBOX);
-					if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+					if (Can_Build(b, ActLike, true) && (b->Cost_Of() < money || hasincome)) {
 						choiceptr = BuildChoice.Alloc();
 						if (choiceptr != NULL) {
 							*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
@@ -5464,7 +5481,7 @@ int HouseClass::AI_Building(void)
 					}
 				} else {
 					b = &BuildingTypeClass::As_Reference(STRUCT_TURRET);
-					if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+					if (Can_Build(b, ActLike, true) && (b->Cost_Of() < money || hasincome)) {
 						choiceptr = BuildChoice.Alloc();
 						if (choiceptr != NULL) {
 							*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
@@ -5504,7 +5521,7 @@ int HouseClass::AI_Building(void)
 
 				if (BQuantity[STRUCT_RADAR] == 0) {
 					b = &BuildingTypeClass::As_Reference(STRUCT_RADAR);
-					if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+					if (Can_Build(b, ActLike, true) && (b->Cost_Of() < money || hasincome)) {
 						choiceptr = BuildChoice.Alloc();
 						if (choiceptr != NULL) {
 							*choiceptr = BuildChoiceClass(URGENCY_HIGH, b->Type);
@@ -5513,14 +5530,14 @@ int HouseClass::AI_Building(void)
 				}
 
 				b = &BuildingTypeClass::As_Reference(STRUCT_SAM);
-				if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+				if (Can_Build(b, ActLike, true) && (b->Cost_Of() < money || hasincome)) {
 					choiceptr = BuildChoice.Alloc();
 					if (choiceptr != NULL) {
 						*choiceptr = BuildChoiceClass((current < threat_quantity) ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
 					}
 				} else {
 					b = &BuildingTypeClass::As_Reference(STRUCT_AAGUN);
-					if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+					if (Can_Build(b, ActLike, true) && (b->Cost_Of() < money || hasincome)) {
 						choiceptr = BuildChoice.Alloc();
 						if (choiceptr != NULL) {
 							*choiceptr = BuildChoiceClass((current < threat_quantity) ? URGENCY_HIGH : URGENCY_MEDIUM, b->Type);
@@ -5536,7 +5553,7 @@ int HouseClass::AI_Building(void)
 		current = BQuantity[STRUCT_TESLA];
 		if (current < Round_Up(Rule.TeslaRatio*fixed(CurBuildings)) && current < Rule.TeslaLimit) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_TESLA);
-			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome) && Power_Fraction() >= 1) {
+			if (Can_Build(b, ActLike, true) && (b->Cost_Of() < money || hasincome) && Power_Fraction() >= 1) {
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr != NULL) {
 					*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
@@ -5550,14 +5567,14 @@ int HouseClass::AI_Building(void)
 		current = BQuantity[STRUCT_ADVANCED_TECH] + BQuantity[STRUCT_SOVIET_TECH];
 		if (current < 1) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_ADVANCED_TECH);
-			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome) && Power_Fraction() >= 1) {
+			if (Can_Build(b, ActLike, true) && (b->Cost_Of() < money || hasincome) && Power_Fraction() >= 1) {
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr != NULL) {
 					*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
 				}
 			} else {
 				b = &BuildingTypeClass::As_Reference(STRUCT_SOVIET_TECH);
-				if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome) && Power_Fraction() >= 1) {
+				if (Can_Build(b, ActLike, true) && (b->Cost_Of() < money || hasincome) && Power_Fraction() >= 1) {
 					choiceptr = BuildChoice.Alloc();
 					if (choiceptr != NULL) {
 						*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
@@ -5572,7 +5589,7 @@ int HouseClass::AI_Building(void)
 		current = BQuantity[STRUCT_HELIPAD];
 		if (current < Round_Up(Rule.HelipadRatio*fixed(CurBuildings)) && current < Rule.HelipadLimit) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_HELIPAD);
-			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+			if (Can_Build(b, ActLike, true) && (b->Cost_Of() < money || hasincome)) {
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr != NULL) {
 					int threat_quantity = 0;
@@ -5591,7 +5608,7 @@ int HouseClass::AI_Building(void)
 		current = BQuantity[STRUCT_AIRSTRIP];
 		if (current < Round_Up(Rule.AirstripRatio*fixed(CurBuildings)) && current < Rule.AirstripLimit) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_AIRSTRIP);
-			if (Can_Build(b, ActLike) && (b->Cost_Of() < money || hasincome)) {
+			if (Can_Build(b, ActLike, true) && (b->Cost_Of() < money || hasincome)) {
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr != NULL) {
 					int threat_quantity = 0;
@@ -5611,7 +5628,7 @@ int HouseClass::AI_Building(void)
 		current = BQuantity[STRUCT_REPAIR];
 		if (current == 0) {
 			b = &BuildingTypeClass::As_Reference(STRUCT_REPAIR);
-			if (Can_Build(b, ActLike) && b->Cost_Of() < money) {
+			if (Can_Build(b, ActLike, true) && b->Cost_Of() < money) {
 				choiceptr = BuildChoice.Alloc();
 				if (choiceptr) {
 					*choiceptr = BuildChoiceClass(URGENCY_MEDIUM, b->Type);
@@ -5665,8 +5682,9 @@ int HouseClass::AI_Unit(void)
 	**	A computer controlled house will try to build a replacement
 	**	harvester if possible.
 	*/
-	if (IQ >= Rule.IQHarvester && !IsTiberiumShort && !IsHuman && BQuantity[STRUCT_REFINERY] > UQuantity[UNIT_HARVESTER] && Difficulty != DIFF_HARD) {
-		if (UnitTypeClass::As_Reference(UNIT_HARVESTER).Level <= Control.TechLevel) {
+	if ((IQ >= Rule.IQHarvester || IsBaseBuilding) && !IsTiberiumShort && !IsHuman && BQuantity[STRUCT_REFINERY] > UQuantity[UNIT_HARVESTER] && Difficulty != DIFF_HARD) {
+		if (UnitTypeClass::As_Reference(UNIT_HARVESTER).Level <= Control.TechLevel &&
+			Can_Build(&UnitTypeClass::As_Reference(UNIT_HARVESTER), ActLike, true)) {
 			BuildUnit = UNIT_HARVESTER;
 			return(TICKS_PER_SECOND);
 		}
@@ -5752,22 +5770,14 @@ int HouseClass::AI_Unit(void)
 		}
 	}
 
-	if (IsBaseBuilding) {
+	if (IsBaseBuilding && BuildUnit == UNIT_NONE) {
 
 		int counter[UNIT_COUNT];
 		int total = 0;
 		UnitType index;
 		for (index = UNIT_FIRST; index < UNIT_COUNT; index++) {
 			UnitTypeClass const * utype = &UnitTypeClass::As_Reference(index);
-			if (Can_Build(utype, ActLike) && utype->Type != UNIT_HARVESTER) {
-				if (utype->PrimaryWeapon != NULL) {
-					counter[index] = 20;
-				} else {
-					counter[index] = 1;
-				}
-			} else {
-				counter[index] = 0;
-			}
+			counter[index] = utype->Type == UNIT_HARVESTER ? 0 : AI_Production_Score(utype, UQuantity[index]);
 			total += counter[index];
 		}
 
@@ -5886,9 +5896,6 @@ int HouseClass::AI_Vessel(void)
 		}
 	}
 
-	if (IsBaseBuilding) {
-		BuildVessel = VESSEL_NONE;
-	}
 
 	return(TICKS_PER_SECOND);
 }
@@ -6004,7 +6011,7 @@ int HouseClass::AI_Infantry(void)
 
 	}
 
-	if (IsBaseBuilding) {
+	if (IsBaseBuilding && BuildInfantry == INFANTRY_NONE) {
 		HouseClass const * enemy = NULL;
 		if (Enemy != HOUSE_NONE) {
 			enemy = HouseClass::As_Pointer(Enemy);
@@ -6021,57 +6028,14 @@ int HouseClass::AI_Infantry(void)
 		int count = 0;
 		int total = 0;
 		for (InfantryType index = INFANTRY_FIRST; index < INFANTRY_COUNT; index++) {
-			if (Can_Build(&InfantryTypeClass::As_Reference(index), ActLike) && InfantryTypeClass::As_Reference(index).Level <= Control.TechLevel) {
-				typetrack[count].Value = 0;
-#ifdef FIXIT_CSII	//	checked - ajw 9/28/98 This looks like a potential bug. It is prob. for save game format compatibility.
-				int clipindex = index;
-				if (clipindex >= INFANTRY_RA_COUNT) clipindex -= INFANTRY_RA_COUNT;
-				if ((enemy != NULL && enemy->IQuantity[clipindex] > IQuantity[clipindex]) || Available_Money() > Rule.InfantryReserve || CurInfantry < CurBuildings * Rule.InfantryBaseMult) {
-#else
-				if ((enemy != NULL && enemy->IQuantity[index] > IQuantity[index]) || Available_Money() > Rule.InfantryReserve || CurInfantry < CurBuildings * Rule.InfantryBaseMult) {
-#endif
-
-					switch (index) {
-						case INFANTRY_E1:
-							typetrack[count].Value = 3;
-							break;
-
-						case INFANTRY_E2:
-							typetrack[count].Value = 5;
-							break;
-
-						case INFANTRY_E3:
-							typetrack[count].Value = 2;
-							break;
-
-						case INFANTRY_E4:
-							typetrack[count].Value = 5;
-							break;
-
-						case INFANTRY_RENOVATOR:
-							if (CurInfantry > 5) {
-								typetrack[count].Value = 1 - max(IQuantity[index], 0);
-							}
-							break;
-
-						case INFANTRY_TANYA:
-							typetrack[count].Value = 1 - max(IQuantity[index], 0);
-							break;
-
-						default:
-							typetrack[count].Value = 0;
-							break;
-					}
-				}
-
-				if (typetrack[count].Value > 0) {
-					typetrack[count].Type = index;
-					total += typetrack[count].Value;
-					count++;
-				}
+			int score = AI_Production_Score(&InfantryTypeClass::As_Reference(index), IQuantity[index]);
+			if (score > 0) {
+				typetrack[count].Type = index;
+				typetrack[count].Value = score;
+				total += score;
+				count++;
 			}
 		}
-
 		/*
 		**	If there is at least one choice, then pick it. The object picked
 		**	is influenced by the weight (value) assigned to it. This is accomplished

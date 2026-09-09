@@ -9,6 +9,7 @@
  */
 
 #include	"function.h"
+#include "AI_DEFENSE.H"
 
 
 /***************************************************************************
@@ -4504,17 +4505,15 @@ void TechnoClass::Base_Is_Attacked(TechnoClass const * enemy)
 	int index;
 	int lp;
 
-	FootClass * defender[6];
+	FootClass * defender[16];
 	memset(defender, '\0', sizeof(defender));
 
 	int value[ARRAY_SIZE(defender)];
 	memset(value, '\0', sizeof(value));
 
 	int count = 0;
-	int weakest = 0;
-	int desired = enemy->Risk() * House->Control.TechLevel;
+	int desired = 0;
 	int risktotal = 0;
-	int zone = Map[Center_Coord()].Zones[Techno_Type_Class()->MZone];
 
 	/*
 	** Humans have to deal with their own base is attacked problems.
@@ -4523,24 +4522,32 @@ void TechnoClass::Base_Is_Attacked(TechnoClass const * enemy)
 		return;
 	}
 
-	/*
-	**	Don't overreact if this building can defend itself.
-	*/
-	if (Session.Type == GAME_NORMAL && Techno_Type_Class()->PrimaryWeapon != NULL) return;
+	// A real attack wakes dormant campaign bases, including low-IQ mission houses.
+	if (Techno_Type_Class()->IsInsignificant) return;
+	House->IsStarted = true;
+	House->IsBaseBuilding = true;
+	House->IsAlerted = true;
+
+	// Count the nearby assault instead of budgeting for only the unit that fired.
+	desired = max(1, enemy->Risk()) * 2;
+	for (int i = 0; i < Infantry.Count(); ++i) {
+		InfantryClass * attacker = Infantry.Ptr(i);
+		if (attacker && attacker != enemy && !attacker->IsInLimbo && attacker->Strength > 0 &&
+			!House->Is_Ally(attacker) && attacker->Is_Weapon_Equipped() &&
+			attacker->Distance(Center_Coord()) <= 8 * CELL_LEPTON_W) desired += attacker->Risk() * 2;
+	}
+	for (int i = 0; i < Units.Count(); ++i) {
+		UnitClass * attacker = Units.Ptr(i);
+		if (attacker && attacker != enemy && !attacker->IsInLimbo && attacker->Strength > 0 &&
+			!House->Is_Ally(attacker) && attacker->Is_Weapon_Equipped() &&
+			attacker->Distance(Center_Coord()) <= 8 * CELL_LEPTON_W) desired += attacker->Risk() * 2;
+	}
 
 	/*
 	** If the enemy is not an infantry or a unit there is not much we can
 	** do about it.
 	*/
 	if (enemy->What_Am_I() != RTTI_INFANTRY && enemy->What_Am_I() != RTTI_UNIT) {
-		return;
-	}
-
-	/*
-	** If we are a certain type of building, such as a barrel or land mine,
-	** ignore the attack.
-	*/
-	if (Techno_Type_Class()->IsInsignificant) {
 		return;
 	}
 
@@ -4564,14 +4571,13 @@ void TechnoClass::Base_Is_Attacked(TechnoClass const * enemy)
 	*/
 	for (index = 0; index < Infantry.Count() && desired > 0; index++) {
 	 	InfantryClass * infantry = Infantry.Ptr(index);
-		if (infantry != NULL && infantry->Owner() == Owner()) {
+		if (infantry != NULL && !infantry->IsInLimbo && infantry->Strength > 0 && infantry->Owner() == Owner()) {
 
 			/*
-			**	Never recruit sticky guard units to defend a base.
+			**	Stationary guards join the defense; other scripted missions stay intact.
 			*/
 			if (!infantry->Is_Weapon_Equipped() ||
-					(!MissionControl[infantry->Mission].IsRecruitable && Session.Type == GAME_NORMAL)) continue;
-//					(Mission != MISSION_GUARD_AREA || Session.Type == GAME_NORMAL)) continue;
+					(!MissionControl[infantry->Mission].IsRecruitable && infantry->Mission != MISSION_STICKY && Session.Type == GAME_NORMAL)) continue;
 
 			/*
 			**	Don't allow a response if it doesn't have a weapon that will affect the
@@ -4582,9 +4588,9 @@ void TechnoClass::Base_Is_Attacked(TechnoClass const * enemy)
 			}
 
 			/*
-			**	Don't try to help if the building is on another planet.
+			**	Check the attacker's reachable ground, not the blocked building footprint.
 			*/
-			if (Map[infantry->Center_Coord()].Zones[infantry->Class->MZone] != Map[Center_Coord()].Zones[infantry->Class->MZone]) continue;
+			if (Map[infantry->Center_Coord()].Zones[infantry->Class->MZone] != Map[enemy->Center_Coord()].Zones[infantry->Class->MZone]) continue;
 
 			/*
 			** Find the amount of threat that this unit can apply to the
@@ -4604,7 +4610,7 @@ void TechnoClass::Base_Is_Attacked(TechnoClass const * enemy)
 			**	Greatly increase the threat value if this unit is already assigned to protect
 			**	the target.
 			*/
-			if (ArchiveTarget == As_Target()) {
+			if (threat > 0 && infantry->ArchiveTarget == As_Target()) {
 				threat *= 100;
 			}
 
@@ -4618,27 +4624,11 @@ void TechnoClass::Base_Is_Attacked(TechnoClass const * enemy)
 				continue;
 			}
 
-			if (count < ARRAY_SIZE(defender)) {
-				defender[count] = infantry;
-				value[count] = threat;
-				count++;
-				continue;
-			}
-
-			if (threat > weakest) {
-				int newweakest = threat;
-
-				for (lp = 0; lp < count; lp++) {
-					if (value[lp] == weakest) {
-						value[lp] = threat;
-						defender[lp] = (FootClass *) infantry;
-						continue;
-					}
-					if (value[lp] < newweakest) {
-						newweakest = value[lp];
-					}
-				}
-				weakest = newweakest;
+			int slot = AI_Defender_Slot(value, count, ARRAY_SIZE(defender), threat);
+			if (slot >= 0) {
+				defender[slot] = infantry;
+				value[slot] = threat;
+				if (slot == count) count++;
 			}
 		}
 	}
@@ -4649,13 +4639,13 @@ void TechnoClass::Base_Is_Attacked(TechnoClass const * enemy)
 	*/
 	for (index = 0; index < Units.Count() && desired > 0; index++) {
 	 	UnitClass * unit = Units.Ptr(index);
-		if (unit != NULL && unit->Owner() == Owner()) {
+		if (unit != NULL && !unit->IsInLimbo && unit->Strength > 0 && unit->Owner() == Owner()) {
 
 			/*
-			**	Never recruit sticky guard units to defend a base.
+			**	Stationary guards join the defense; other scripted missions stay intact.
 			*/
 			if (!unit->Is_Weapon_Equipped() ||
-				(!MissionControl[unit->Mission].IsRecruitable && Session.Type == GAME_NORMAL)) continue;
+				(!MissionControl[unit->Mission].IsRecruitable && unit->Mission != MISSION_STICKY && Session.Type == GAME_NORMAL)) continue;
 
 			/*
 			**	Don't allow a response if it doesn't have a weapon that will affect the
@@ -4666,9 +4656,9 @@ void TechnoClass::Base_Is_Attacked(TechnoClass const * enemy)
 			}
 
 			/*
-			**	Don't try to help if the building is on another planet.
+			**	Check the attacker's reachable ground, not the blocked building footprint.
 			*/
-			if (Map[unit->Center_Coord()].Zones[unit->Class->MZone] != Map[Center_Coord()].Zones[unit->Class->MZone]) continue;
+			if (Map[unit->Center_Coord()].Zones[unit->Class->MZone] != Map[enemy->Center_Coord()].Zones[unit->Class->MZone]) continue;
 
 			/*
 			** Find the amount of threat that this unit can apply to the
@@ -4688,7 +4678,7 @@ void TechnoClass::Base_Is_Attacked(TechnoClass const * enemy)
 			**	Greatly increase the threat value if this unit is already assigned to protect
 			**	the target.
 			*/
-			if (threat > 0 && ArchiveTarget == As_Target()) {
+			if (threat > 0 && unit->ArchiveTarget == As_Target()) {
 				threat *= 10;
 			}
 
@@ -4702,27 +4692,11 @@ void TechnoClass::Base_Is_Attacked(TechnoClass const * enemy)
 				continue;
 			}
 
-			if (count < ARRAY_SIZE(defender)) {
-				defender[count] = unit;
-				value[count] = threat;
-				count++;
-				continue;
-			}
-			if (threat > weakest) {
-				int newweakest = threat;
-
-				for (lp = 0; lp < count; lp ++) {
-					if (value[lp] == weakest) {
-						value[lp] = threat;
-						defender[lp] = (FootClass *) unit;
-						continue;
-					}
-					if (value[lp] < newweakest) {
-//					if (value[count] < newweakest) {
-						newweakest = value[lp];
-					}
-				}
-				weakest = newweakest;
+			int slot = AI_Defender_Slot(value, count, ARRAY_SIZE(defender), threat);
+			if (slot >= 0) {
+				defender[slot] = unit;
+				value[slot] = threat;
+				if (slot == count) count++;
 			}
 		}
 	}
@@ -4750,13 +4724,10 @@ void TechnoClass::Base_Is_Attacked(TechnoClass const * enemy)
 		}
 
 		for (lp = 0; lp < count; lp ++) {
-			if (Percent_Chance(50)) {
-				defender[lp]->Assign_Mission(MISSION_RESCUE);
-			} else {
-				defender[lp]->Assign_Mission(MISSION_GUARD_AREA);
-				defender[lp]->ArchiveTarget = As_Target();
-			}
+			defender[lp]->Assign_Mission(MISSION_ATTACK);
 			defender[lp]->Assign_Target(enemy->As_Target());
+			defender[lp]->Assign_Destination(TARGET_NONE);
+			defender[lp]->Commence();
 			risktotal += defender[lp]->Risk();
 			if (risktotal > desired) {
 				break;
@@ -4765,7 +4736,7 @@ void TechnoClass::Base_Is_Attacked(TechnoClass const * enemy)
 	}
 
 	if (risktotal > desired && enemy->Is_Foot()) {
-		((FootClass *)enemy)->BaseAttackTimer = TICKS_PER_MINUTE * Rule.BaseDefenseDelay;
+		((FootClass *)enemy)->BaseAttackTimer = TICKS_PER_SECOND * 2;
 	}
 }
 
