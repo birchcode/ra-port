@@ -140,6 +140,12 @@ It is not packaged as a `.app` bundle yet.
 
 ## Linux Desktop
 
+Both desktop builds use the original Red Alert icon. The macOS playtest
+packager includes it in the app bundle. On Linux, after configuring a build,
+copy `build-linux/redalert.desktop` to `~/.local/share/applications/` to add
+the game and its icon to the applications menu. The launcher points to the
+current checkout, so recopy it after moving or reconfiguring the build.
+
 Install Ubuntu build dependencies:
 
 ```sh

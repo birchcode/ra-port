@@ -10,6 +10,9 @@
 #include "mobile_touch_gesture.h"
 #include "ra_aspect_viewport.h"
 #include "ra_crt_gl.h"
+#if !defined(RA_MOBILE_TOUCH)
+#include "ra_window_icon.h"
+#endif
 #include <mmsystem.h>
 
 static SDL_Window *MacWindow = 0;
@@ -722,6 +725,14 @@ static bool mac_sdl_set_mode(int *width, int *height, bool allow_widescreen)
 		return false;
 	}
 	SDL_ShowCursor(SDL_DISABLE);
+#if !defined(RA_MOBILE_TOUCH)
+	SDL_Surface *icon = SDL_CreateRGBSurfaceWithFormatFrom(
+		(void *)RAWindowIcon, 32, 32, 32, 32 * 4, SDL_PIXELFORMAT_RGBA32);
+	if (icon) {
+		SDL_SetWindowIcon(MacWindow, icon);
+		SDL_FreeSurface(icon);
+	}
+#endif
 	if (mac_crt_env_requested()) {
 		if (!RA_CRTGL_Init(MacWindow)) {
 			mac_destroy_video_objects();

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Command & Conquer: Red Alert
+Comment=Play Red Alert
+Exec="@CMAKE_SOURCE_DIR@/scripts/run_linux_dev.sh" --no-build --build-dir "@CMAKE_BINARY_DIR@"
+Path=@CMAKE_SOURCE_DIR@
+Icon=@CMAKE_SOURCE_DIR@/packaging/icons/redalert.png
+StartupWMClass=redalert_linux
+Terminal=false
+Categories=Game;StrategyGame;

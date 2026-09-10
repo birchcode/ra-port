@@ -37,6 +37,7 @@ if(APPLE)
         Threads::Threads
     )
 elseif(UNIX)
+    configure_file(packaging/redalert.desktop.in redalert.desktop @ONLY)
     add_executable(redalert_linux
         PORT/MAC/src/main.cpp
         ${RA95_PLATFORM_SDL_SOURCES}
