@@ -997,6 +997,9 @@ void InfantryClass::Assign_Destination(TARGET target)
 		if (!In_Radio_Contact()) {
 			TechnoClass * techno = As_Techno(target);
 			if (techno != NULL) {
+				// Keep the requested transport through busy radios and interrupted
+				// staging. NavCom may subsequently become a staging cell or be cleared.
+				ArchiveTarget = target;
 
 				/*
 				**	Determine if the transport is already in radio contact. If so, then just move
@@ -3731,8 +3734,11 @@ void InfantryClass::Movement_AI(void)
 				**	to be entered. If not, then abort the path and try
 				**	again.
 				*/
-				if (Path[0] != FACING_NONE && Can_Enter_Cell(Adjacent_Cell(Coord_Cell(Center_Coord()), Path[0])) != MOVE_OK) {
-					Path[0] = FACING_NONE;
+				if (Path[0] != FACING_NONE) {
+					MoveType next = Can_Enter_Cell(Adjacent_Cell(Coord_Cell(Center_Coord()), Path[0]));
+					if (next != MOVE_OK && !(House->IsHuman && next == MOVE_MOVING_BLOCK)) {
+						Path[0] = FACING_NONE;
+					}
 				}
 
 				/*
@@ -3820,7 +3826,14 @@ void InfantryClass::Movement_AI(void)
 				COORDINATE acoord = Adjacent_Cell(Coord, Path[0]);
 				CELL acell = Coord_Cell(acoord);
 
-				if (Can_Enter_Cell(acell) != MOVE_OK) {
+				MoveType blocked = Can_Enter_Cell(acell);
+				if (blocked != MOVE_OK) {
+					if (House->IsHuman && blocked == MOVE_MOVING_BLOCK &&
+						Distance(NavCom) >= Rule.CloseEnoughDistance) {
+						Stop_Driver();
+						if (!Wait_For_Traffic()) Path[0] = FACING_NONE;
+						return;
+					}
 
 					if ((Mission == MISSION_MOVE || Mission == MISSION_ENTER) && !IsTethered /*&& House->IsHuman*/ && Distance(NavCom) < Rule.CloseEnoughDistance) {
 						Assign_Destination(TARGET_NONE);
@@ -3830,7 +3843,7 @@ void InfantryClass::Movement_AI(void)
 						** If blocked by a moving block then just exit start of move and
 						** try again next tick.
 						*/
-						if (Can_Enter_Cell(acell) == MOVE_DESTROYABLE) {
+						if (blocked == MOVE_DESTROYABLE && !Is_Player_Move_Order()) {
 							if (Map[acell].Cell_Object()) {
 								if (!House->Is_Ally(Map[acell].Cell_Object())) {
 									Override_Mission(MISSION_ATTACK, Map[acell].Cell_Object()->As_Target(), TARGET_NONE);
@@ -3851,6 +3864,10 @@ void InfantryClass::Movement_AI(void)
 				} else {
 					if (Start_Driver(acoord)) {
 						if (!IsActive) return;
+						if (TryTryAgain == PATH_WAITING) {
+							TryTryAgain = PATH_RETRY;
+							PathDelay = 0;
+						}
 						PrimaryFacing.Set(Direction8(Center_Coord(), Head_To_Coord()));
 						if (IsFormationMove) {
 							Set_Speed(Ground[Map[Coord].Land_Type()].Cost[FormationSpeed] * 256);

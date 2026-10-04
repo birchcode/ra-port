@@ -825,6 +825,68 @@ void DriveClass::Per_Cell_Process(PCPType why)
 }
 
 
+// Resolve a head-on ore-truck meeting without discarding either economic
+// destination. A stable unit ID chooses who backs up; no random tie-breaking.
+bool DriveClass::Resolve_Harvester_Traffic(void)
+{
+	if (!House->IsHuman || What_Am_I() != RTTI_UNIT || !Target_Legal(NavCom) ||
+		IsDriving || IsTethered || MissionControl[Mission].IsParalyzed) return(false);
+	UnitClass * self = (UnitClass *)this;
+	if (!self->Class->IsToHarvest || self->IsDumping) return(false);
+	FacingType forward = Dir_Facing(Direction(NavCom));
+	CELL ahead = Adjacent_Cell(Coord_Cell(Coord), forward);
+	if (!Map.In_Radar(ahead)) return(false);
+	ObjectClass * object = Map[ahead].Cell_Occupier();
+	if (!object || object->What_Am_I() != RTTI_UNIT || !House->Is_Ally(object)) return(false);
+	UnitClass * other = (UnitClass *)object;
+	if (other->House != House || !other->Class->IsToHarvest || other->IsDumping ||
+		other->IsTethered || other->IsDriving || MissionControl[other->Mission].IsParalyzed ||
+		!Target_Legal(other->NavCom) || Dir_Facing(other->Direction(other->NavCom)) != (forward + FACING_S)) return(false);
+
+	UnitClass * yielding = ID > other->ID ? self : other;
+	UnitClass * passing = yielding == self ? other : self;
+	FacingType back = Dir_Facing(yielding->Direction(passing)) + FACING_S;
+	static int const offsets[] = {0, 1, -1, 2, -2};
+	for (int i = 0; i < ARRAY_SIZE(offsets); ++i) {
+		FacingType escape = back + (FacingType)offsets[i];
+		CELL cell = Adjacent_Cell(Coord_Cell(yielding->Coord), escape);
+		if (Map.In_Radar(cell) && yielding->Can_Enter_Cell(cell, escape) == MOVE_OK) {
+			if (yielding == self) {
+				Path[0] = escape;
+				Path[1] = FACING_NONE;
+				PathDelay = 0;
+				TryTryAgain = PATH_RETRY;
+			} else {
+				PathDelay = TICKS_PER_SECOND;
+			}
+			return(true);
+		}
+	}
+	return(false);
+}
+
+
+/* A faster member of a formation should not remain parked behind a slower
+** member when a temporary side-step is available. */
+bool DriveClass::Try_Formation_Yield(CELL cell)
+{
+	if (!IsFormationMove || Group == 255 || !Map.In_Radar(cell)) return(false);
+
+	TechnoClass * object = Map[cell].Cell_Techno();
+	if (!object || !object->Is_Foot()) return(false);
+
+	FootClass * blocker = (FootClass *)object;
+	if (blocker == this || blocker->House != House || !blocker->IsFormationMove ||
+		blocker->Group != Group || blocker->IsTethered || blocker->IsDriving ||
+		blocker->Is_On_Priority_Mission()) return(false);
+
+	if (Techno_Type_Class()->MaxSpeed <= blocker->Techno_Type_Class()->MaxSpeed) return(false);
+
+	blocker->Scatter(0, true, true);
+	return(Target_Legal(blocker->NavCom));
+}
+
+
 /***********************************************************************************************
  * DriveClass::Start_Of_Move -- Tries to get a unit to advance toward cell.                    *
  *                                                                                             *
@@ -860,6 +922,8 @@ bool DriveClass::Start_Of_Move(void)
 	CELL				destcell;			// Cell of destination.
 	LandType			ground;				// Ground unit is entering.
 	COORDINATE				dest;					// Destination coordinate.
+
+	if (Path[0] == FACING_NONE && PathDelay == 0 && Resolve_Harvester_Traffic()) return(true);
 
 	facing = Path[0];
 
@@ -1055,7 +1119,9 @@ bool DriveClass::Start_Of_Move(void)
 			**	get out of the way.
 			*/
 			if (cando == MOVE_TEMP) {
-				Map[destcell].Incoming(0, true, true);
+				if (!Try_Formation_Yield(destcell)) {
+					Map[destcell].Incoming(0, true, true);
+				}
 			}
 
 			/*
@@ -1068,13 +1134,15 @@ bool DriveClass::Start_Of_Move(void)
 			Stop_Driver();
 			if (cando != MOVE_MOVING_BLOCK) {
 			 	Path[0] = FACING_NONE;		// Path is blocked!
+			} else if (House->IsHuman && !Wait_For_Traffic()) {
+				Path[0] = FACING_NONE;
 			}
 
 			/*
 			** If blocked by a moving block then just exit start of move and
 			** try again next tick.
 			*/
-			if (cando == MOVE_DESTROYABLE) {
+			if (cando == MOVE_DESTROYABLE && !Is_Player_Move_Order()) {
 				if (Map[destcell].Cell_Object()) {
 					if (!House->Is_Ally(Map[destcell].Cell_Object())) {
 						Override_Mission(MISSION_ATTACK, Map[destcell].Cell_Object()->As_Target(), TARGET_NONE);
@@ -1176,7 +1244,9 @@ bool DriveClass::Start_Of_Move(void)
 						**	get out of the way.
 						*/
 						if (cando == MOVE_TEMP) {
-							Map[destcell].Incoming(0, true, true);
+							if (!Try_Formation_Yield(destcell)) {
+								Map[destcell].Incoming(0, true, true);
+							}
 						}
 
 						/*
@@ -1189,7 +1259,7 @@ bool DriveClass::Start_Of_Move(void)
 						Path[0] = FACING_NONE;		// Path is blocked!
 						TrackNumber = -1;
 						dest = NULL;
-						if (cando == MOVE_DESTROYABLE) {
+						if (cando == MOVE_DESTROYABLE && !Is_Player_Move_Order()) {
 
 							if (Map[destcell].Cell_Object()) {
 								if (!House->Is_Ally(Map[destcell].Cell_Object())) {
@@ -1222,6 +1292,9 @@ bool DriveClass::Start_Of_Move(void)
 			TrackNumber = -1;
 			Path[0] = FACING_NONE;
 			Set_Speed(0);
+		} else if (TryTryAgain == PATH_WAITING) {
+			TryTryAgain = PATH_RETRY;
+			PathDelay = 0;
 		}
 	}
 	return(false);

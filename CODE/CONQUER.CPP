@@ -2050,6 +2050,14 @@ static void Sync_Delay(void)
 			}
 			Map.Render();
 		}
+		#if defined(RA_GAME_RUNTIME)
+		else {
+			// Multiplayer dialogs keep simulating, but skip Map.Input above.
+			// Service the software cursor during the wait, independently of game speed.
+			MacSDL_PumpEvents();
+			Sleep(1);
+		}
+		#endif
 	}
 	Color_Cycle();
 	Call_Back();

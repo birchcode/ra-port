@@ -53,22 +53,49 @@ static void camera_input_test()
 #if SDL_VERSION_ATLEAST(2, 0, 18)
 	wheel.wheel.preciseY = 1;
 #endif
-	send_event(wheel); pan_is(0, -24, 0);
-	SDL_SetModState(KMOD_SHIFT);
-	send_event(wheel); pan_is(-24, 0, 0);
-	SDL_SetModState(KMOD_NONE);
-	wheel.wheel.direction = SDL_MOUSEWHEEL_FLIPPED;
-	send_event(wheel); pan_is(0, 24, 0);
-	wheel.wheel.direction = SDL_MOUSEWHEEL_NORMAL;
+	int anchor_x, anchor_y;
+	assert(MacSDL_GetCameraZoom() == 1);
+	send_event(wheel); pan_is(0, 0, 0);
+	assert(MacSDL_ConsumeCameraZoom(&anchor_x, &anchor_y));
+	assert(anchor_x == 200 && anchor_y == 200);
+	assert(MacSDL_GetCameraZoom() < 1);
+	wheel.wheel.y = 100;
 #if SDL_VERSION_ATLEAST(2, 0, 18)
-	wheel.wheel.preciseX = 0.125f; wheel.wheel.preciseY = 0.125f;
-	send_event(wheel); pan_is(3, -3, 0);
-	wheel.wheel.preciseX = 0; wheel.wheel.preciseY = 0.015625f;
+	wheel.wheel.preciseY = 100;
+#endif
 	send_event(wheel); pan_is(0, 0, 0);
+	assert(MacSDL_ConsumeCameraZoom(&anchor_x, &anchor_y));
+	assert(MacSDL_GetCameraZoom() == 0.5);
+	// Drag remains a grab gesture at the reduced scale.
+	SDL_Event drag = {};
+	drag.type = SDL_MOUSEBUTTONDOWN; drag.button.button = SDL_BUTTON_MIDDLE;
+	drag.button.x = 200; drag.button.y = 200;
+	send_event(drag); pan_is(0, 0, 0, true);
+	SDL_Event move = {};
+	move.type = SDL_MOUSEMOTION; move.motion.xrel = 12; move.motion.yrel = 7;
+	send_event(move); pan_is(-24, -14, 0, true);
+	drag.type = SDL_MOUSEBUTTONUP;
+	send_event(drag); pan_is(0, 0, 0);
+	wheel.wheel.direction = SDL_MOUSEWHEEL_FLIPPED;
 	send_event(wheel); pan_is(0, 0, 0);
-	send_event(wheel); pan_is(0, -1, 0);
-	MacSDL_SetCameraInput(false); MacSDL_SetCameraInput(true);
+	assert(MacSDL_ConsumeCameraZoom(&anchor_x, &anchor_y));
+	assert(MacSDL_GetCameraZoom() == 1);
+	send_event(wheel);
+	assert(!MacSDL_ConsumeCameraZoom(&anchor_x, &anchor_y));
+	assert(MacSDL_GetCameraZoom() == 1); // Never magnify past the original view.
+	wheel.wheel.direction = SDL_MOUSEWHEEL_NORMAL;
+	wheel.wheel.y = 1;
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+	wheel.wheel.preciseY = 0.125f;
+	send_event(wheel);
+	assert(MacSDL_ConsumeCameraZoom(&anchor_x, &anchor_y));
+	assert(MacSDL_GetCameraZoom() < 1 && MacSDL_GetCameraZoom() > 0.98);
+	wheel.wheel.direction = SDL_MOUSEWHEEL_FLIPPED;
 	wheel.wheel.preciseY = 1;
+	send_event(wheel);
+	assert(MacSDL_ConsumeCameraZoom(&anchor_x, &anchor_y));
+	assert(MacSDL_GetCameraZoom() == 1);
+	wheel.wheel.direction = SDL_MOUSEWHEEL_NORMAL;
 #endif
 	SDL_WarpMouseInWindow(window, 550, 200);
 	send_event(wheel); pan_is(0, 0, -1);
@@ -187,6 +214,35 @@ static void title_background_test()
 	MacSDL_Present8(canvas, 854, 400, 854);
 	assert(SDL_RenderReadPixels(renderer, 0, SDL_PIXELFORMAT_ARGB8888, result, 854 * 4) == 0);
 	assert((result[200 * 854] & 0xffffff) == 0x00ff00);
+	// Clearing and redrawing a control must never expose the cleared frame.
+	{
+		MacSDLDrawBatch outer;
+		memset(canvas, 0, sizeof(canvas));
+		MacSDL_Present8(canvas, 854, 400, 854);
+		MacSDL_PumpEvents();
+		assert(SDL_RenderReadPixels(renderer, 0, SDL_PIXELFORMAT_ARGB8888, result, 854 * 4) == 0);
+		assert((result[200 * 854 + 427] & 0xffffff) == 0x00ff00);
+		{
+			MacSDLDrawBatch inner;
+			memset(canvas, 1, sizeof(canvas));
+			MacSDL_Present8(canvas, 854, 400, 854);
+		}
+		assert(SDL_RenderReadPixels(renderer, 0, SDL_PIXELFORMAT_ARGB8888, result, 854 * 4) == 0);
+		assert((result[200 * 854 + 427] & 0xffffff) == 0x00ff00);
+		// The pending frame owns its pixels, even if the source is reused.
+		memset(canvas, 0, sizeof(canvas));
+	}
+	assert(SDL_RenderReadPixels(renderer, 0, SDL_PIXELFORMAT_ARGB8888, result, 854 * 4) == 0);
+	assert((result[200 * 854 + 427] & 0xffffff) == 0xff0000);
+	{
+		MacSDLDrawBatch empty;
+	}
+	assert(SDL_RenderReadPixels(renderer, 0, SDL_PIXELFORMAT_ARGB8888, result, 854 * 4) == 0);
+	assert((result[200 * 854 + 427] & 0xffffff) == 0xff0000);
+	// Ordinary presentation resumes immediately outside a batch.
+	MacSDL_Present8(canvas, 854, 400, 854);
+	assert(SDL_RenderReadPixels(renderer, 0, SDL_PIXELFORMAT_ARGB8888, result, 854 * 4) == 0);
+	assert((result[200 * 854 + 427] & 0xffffff) == 0);
 	MacSDL_Shutdown();
 }
 

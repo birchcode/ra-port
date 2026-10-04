@@ -10,7 +10,7 @@ macos = app / 'Contents/MacOS'
 macos.mkdir(parents=True, exist_ok=True)
 resources = app / 'Contents/Resources'
 resources.mkdir(parents=True, exist_ok=True)
-shutil.copy2(root / 'packaging/icons/redalert.icns', resources / 'redalert.icns')
+shutil.copy2(root / 'packaging/icons/redalert.icns', resources / 'redalert-macos.icns')
 # Atomic replacement leaves an already-running executable untouched.
 pending = macos / 'redalert_mac.next'
 shutil.copy2(root / 'build/redalert_mac', pending)
@@ -34,7 +34,7 @@ info = {
     'CFBundleExecutable': 'launch-playtest',
     'CFBundleIdentifier': 'local.raport.widescreen-playtest.launcher',
     'CFBundleName': 'RA Widescreen Playtest',
-    'CFBundleIconFile': 'redalert.icns',
+    'CFBundleIconFile': 'redalert-macos.icns',
     'CFBundlePackageType': 'APPL',
     'CFBundleVersion': '2',
 }

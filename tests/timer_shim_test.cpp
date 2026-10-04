@@ -29,6 +29,12 @@ int main()
 	DeleteCriticalSection(&section);
 	if (section.initialized) fail("critical section was not deleted");
 
+	// Future deadlines must remain in the future on LP64 hosts too.
+	MMRESULT future = timeSetEvent(10000, 1, timer_callback, 0, TIME_ONESHOT);
+	MacMM_PumpTimers();
+	timeKillEvent(future);
+	if (CallbackCount) fail("timer fired before its deadline");
+
 	MMRESULT timer = timeSetEvent(10, 1, timer_callback, 0, TIME_PERIODIC);
 	if (timer == 0) fail("timeSetEvent returned zero");
 

@@ -85,6 +85,18 @@ void ScrollClass::AI(KeyNumType &input, int x, int y)
 	char const *edge_setting = getenv("RA_EDGE_SCROLL");
 	edge_scroll = !edge_setting || strcmp(edge_setting, "0") != 0;
 	if (!edge_scroll) Inertia = 0;
+	int anchor_x, anchor_y;
+	int old_width = TacLeptonWidth, old_height = TacLeptonHeight;
+	if (MacSDL_ConsumeCameraZoom(&anchor_x, &anchor_y)) {
+		Apply_Camera_Zoom();
+		int width = WindowList[WINDOW_TACTICAL][WINDOWWIDTH];
+		int height = WindowList[WINDOW_TACTICAL][WINDOWHEIGHT];
+		int next_x = Coord_X(TacticalCoord) + (anchor_x - TacPixelX) * (old_width - (int)TacLeptonWidth) / width;
+		int next_y = Coord_Y(TacticalCoord) + (anchor_y - TacPixelY) * (old_height - (int)TacLeptonHeight) / height;
+		next_x = max(next_x, Cell_To_Lepton(MapCellX));
+		next_y = max(next_y, Cell_To_Lepton(MapCellY));
+		Set_Tactical_Position(XY_Coord(next_x, next_y));
+	}
 	int pan_x, pan_y, sidebar;
 	camera_panning = MacSDL_ConsumeCameraPan(&pan_x, &pan_y, &sidebar);
 	if (camera_panning && !IsRubberBand && !IsTentative) {

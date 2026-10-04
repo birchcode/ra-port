@@ -209,8 +209,8 @@ class FootClass :	public TechnoClass
 		**	that a findpath won't be calculated until this timer expires.
 		*/
 		CDTimerClass<FrameTimerClass> PathDelay;
-		enum {PATH_RETRY=10};
-		int TryTryAgain;		// Number of retry attempts remaining.
+		enum {PATH_RETRY=10, PATH_WAITING=PATH_RETRY+1};
+		int TryTryAgain;		// Retry attempts, or PATH_WAITING during traffic waits.
 
 		/*
 		** If the object has recently attacked a base, then this timer will not
@@ -239,6 +239,9 @@ class FootClass :	public TechnoClass
 		**	Member function prototypes.
 		*/
 		bool Basic_Path(void);
+		bool Wait_For_Traffic(void);
+		bool Is_Player_Move_Order(void) const;
+		void Alert_Nearby_Allies(TechnoClass const * source);
 
 		virtual RadioMessageType Receive_Message(RadioClass * from, RadioMessageType message, long & param);
 		virtual bool Can_Demolish(void) const;
@@ -352,4 +355,3 @@ class FootClass :	public TechnoClass
 };
 
 #endif
-

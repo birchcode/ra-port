@@ -658,7 +658,11 @@ top_of_list:
 			if (right) {
 				which = &pright;
 				if (left) {
-					if (pleft.Length < pright.Length) {
+					/* Prefer the accumulated movement cost. Length is only a
+				** tie-breaker; a short route through traffic or danger should
+				** not beat a slightly longer route through clear ground. */
+					if (pleft.Cost < pright.Cost ||
+						(pleft.Cost == pright.Cost && pleft.Length < pright.Length)) {
 						which = &pleft;
 					} else {
 						which = &pright;
@@ -1228,6 +1232,10 @@ CELL FootClass::Safety_Point(CELL src, CELL dst, int start, int max)
 int FootClass::Passable_Cell(CELL cell, FacingType face, int threat, MoveType threshhold)
 {
 	MoveType move = Can_Enter_Cell(cell, face);
+
+	// Moving is not permission to shoot a tree, wall, or enemy out of the way.
+	// Keep explicit attack missions and computer behavior unchanged.
+	if (Is_Player_Move_Order() && move == MOVE_DESTROYABLE) return(0);
 
 	if (move < MOVE_MOVING_BLOCK && Distance(Cell_Coord(cell)) > 0x0100) threshhold = MOVE_MOVING_BLOCK;
 

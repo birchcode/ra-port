@@ -99,7 +99,7 @@ int main() {
 
  // Identical armies must produce visibly different pressure at each player difficulty.
  DiffType handicaps[3]={DIFF_HARD,DIFF_NORMAL,DIFF_EASY}; // player Easy, Normal, Hard
- int wave[3]={4,8,9}, pause[3]={120,30,15}, reaction[3]={5,2,1};
+ int wave[3]={2,8,9}, pause[3]={180,30,15}, reaction[3]={8,2,1};
  for(int level=0;level<3;++level) {
   soviet->Difficulty=handicaps[level]; soviet->Attack=0; Frame=0;
   for(int i=0;i<12;++i) {
@@ -107,10 +107,14 @@ int main() {
    garrison[i]->Assign_Mission(MISSION_GUARD); garrison[i]->Commence();
   }
   if(level==0) {
+   // Even a force already at its posts must wait through the opening grace.
+   Frame=TICKS_PER_MINUTE*5-1;
+   soviet->Tactical_AI();
+   for(int i=0;i<12;++i) garrison[i]->Coord=As_Coord(garrison[i]->ArchiveTarget);
    soviet->Tactical_AI();
    for(int i=0;i<12;++i) CHECK(garrison[i]->Mission!=MISSION_ATTACK);
   }
-  Frame=TICKS_PER_MINUTE*3;
+  Frame=TICKS_PER_MINUTE*5;
   CHECK(soviet->Tactical_AI()==reaction[level]*TICKS_PER_SECOND);
   for(int i=0;i<12;++i) garrison[i]->Coord=As_Coord(garrison[i]->ArchiveTarget);
   soviet->Tactical_AI();
@@ -128,7 +132,7 @@ int main() {
  CHECK(garrison[0]->TarCom==attacker->As_Target());
 
 
- // Easy commits four fresh defenders; Normal can mobilize the whole idle garrison.
+ // Easy commits two fresh defenders; Normal can mobilize the whole idle garrison.
  for(int level=0;level<2;++level) {
   soviet->Difficulty=handicaps[level];
   for(int i=0;i<12;++i) {
@@ -137,7 +141,7 @@ int main() {
   }
   soviet->Tactical_AI(); int responders=0;
   for(int i=0;i<12;++i) if(garrison[i]->TarCom==attacker->As_Target()) ++responders;
-  CHECK(responders==(level==0 ? 4 : 12));
+  CHECK(responders==(level==0 ? 2 : 12));
  }
  soviet->Difficulty=DIFF_NORMAL;
  // Counter-production responds to the enemy composition and protects construction cash.
@@ -171,6 +175,23 @@ int main() {
  soviet->Credits=2500; soviet->BuildStructure=STRUCT_NONE; soviet->CurInfantry=soviet->CurBuildings; soviet->CurUnits=0;
  soviet->Difficulty=DIFF_HARD; CHECK(soviet->AI_Production_Score(&rifle,0)==0);
  soviet->Difficulty=DIFF_NORMAL; CHECK(soviet->AI_Production_Score(&rifle,0)>0);
+ // Easy can replace losses, but even a large base cannot stockpile a huge army.
+ soviet->Difficulty=DIFF_HARD;
+ int buildings[3]={2,18,40}, caps[3]={6,9,10};
+ for(int i=0;i<3;++i) {
+  soviet->CurBuildings=buildings[i]; soviet->CurInfantry=caps[i]-1;
+  CHECK(soviet->AI_Production_Score(&rifle,0)>0);
+  soviet->CurInfantry=caps[i];
+  CHECK(soviet->AI_Production_Score(&rifle,0)==0);
+ }
+ // A fixed seed must select the same AI destinations with Clang and GCC.
+ // Captured from the established Mac direction-then-distance sequence.
+ static CELL const zone_cells[]={6590,7243,9541,8757,7240,8524,9532,7094,
+                                6459,7753,9536,7094,6967,8651,9786,7734};
+ soviet->Center=Cell_Coord(64*MAP_CELL_W+64); soviet->Radius=5*CELL_LEPTON_W;
+ Scen.RandomNumber.Seed=0x12345678;
+ for(int i=0;i<16;++i) CHECK(soviet->Random_Cell_In_Zone((ZoneType)(ZONE_NORTH+i%4))==zone_cells[i]);
+ CHECK((Scen.RandomNumber.Seed & 0xffffffffUL)==0x9d252b9eUL);
  puts("campaign AI: activation, production, rebuilds, defensive posts, stable orders, rally/assault/reserve, retreat, incursion and counter-production passed");
  return 0;
 }

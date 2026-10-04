@@ -9,6 +9,7 @@
  */
 
 #include "function.h"
+#include "mac_sdl_runtime.h"
 
 extern bool Is_Mission_Counterstrike (char *file_name);
 
@@ -242,6 +243,7 @@ GameType Select_MPlayer_Game (void)
 		//	Refresh display if needed
 		//.....................................................................
 		if (display) {
+			MacSDLDrawBatch draw_batch;
 			Hide_Mouse();
 			if (display >= REDRAW_BACKGROUND) {
 
@@ -742,6 +744,7 @@ int Surrender_Dialog(int text)
 		//	Refresh display if needed
 		//.....................................................................
 		if (display) {
+			MacSDLDrawBatch draw_batch;
 			display = false;
 
 			//..................................................................
@@ -940,6 +943,7 @@ int Abort_Dialog(void)
 		//	Refresh display if needed
 		//.....................................................................
 		if (display) {
+			MacSDLDrawBatch draw_batch;
 			display = false;
 
 			//..................................................................

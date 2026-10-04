@@ -348,13 +348,13 @@ The updated local app is `RA Widescreen Playtest.app`; the older Camera Playtest
 ## Desktop camera controls
 
 - **Middle-button drag:** grab and move the battlefield.
-- **Mouse wheel:** pan vertically; **Shift+wheel** pans horizontally.
-- **Trackpad:** pan on both axes, including small movements.
+- **Mouse wheel:** scroll up to zoom out around the pointer; scroll down to return to the original scale. Range: ½×–1×, limited by map size.
+- **Trackpad:** vertical scrolling zooms smoothly; horizontal scrolling does not move the camera.
 - **Wheel over the sidebar:** scroll the build lists.
 
 Left-drag selection and right-click commands remain available. Camera gestures are disabled in dialogs and movies, and dragging stops on Escape, focus loss, or fullscreen/size changes.
 
-Edge scrolling remains enabled. Set `RA_EDGE_SCROLL=0` to disable it. `RA_PAN_SPEED=0.1..10` adjusts wheel/trackpad speed (default `1`); `RA_PAN_REVERSE=1` reverses wheel/trackpad camera direction. For example:
+Edge scrolling remains enabled. Set `RA_EDGE_SCROLL=0` to disable it. For example:
 
 ```sh
 RA_FULLSCREEN=1 RA_WIDESCREEN=1 RA_EDGE_SCROLL=0 scripts/run_mac_dev.sh

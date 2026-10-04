@@ -1,50 +1,43 @@
-# Multiplayer handoff — 2026-09-09
+# Multiplayer handoff — 2026-09-10
 
-## Audit update — 2026-09-09
+## Verified state
 
-Read `docs/MULTIPLAYER_CONTRACT.md` for the completed contract trace, local evidence and remaining acceptance checklist. Fixed the LP64 reliable-sequence startup failure and UDP truncation handling; both peers must rebuild. Added `tests/connection_test.cpp` and expanded the socket regression. Queue checks, authorized loopback test, script suite and macOS game build pass. No two-machine match has been verified. Parser validation, explicit build/data compatibility and real-network checks still gate internet transport. Current audit base is `ea5aa8f` plus dirty multiplayer/CRT edits; preserve concurrent work.
+Mac ↔ Linux LAN discovery, join and match startup work. The user confirmed the retry worked after fixing a frame-33 desync. **A 30-minute synchronized match, results/rematch and disconnect recovery are not yet verified. Internet transport is not implemented.**
 
-## Mac Pro installation — 2026-09-09
+The desync came with divergent AI destinations and simulation RNG state. A real-engine regression reproduced different results under Clang/GCC from the same seed: argument evaluation reversed direction/distance random draws. `CODE/HOUSE.CPP::Random_Cell_In_Zone` now sequences direction then distance; `CODE/SCENARIO.CPP` sequences fallback spawn X/Y. The fixed-seed fixture in `tests/ai_campaign_test.cpp` failed on Linux before the fix and passes on both platforms afterward. Reports, diff, screenshots and then-installed hashes: `build/network-audit/desync-20260910/`.
 
-Installed at `rmp@rmp-macpro5-1.local` (`192.168.1.130`), `/home/rmp/ra-port-network-audit-20260909`. Open **Red Alert — LAN Test** from the applications menu/desktop. Older installations are preserved; assets link to `/home/rmp/ra-port-lan/assets`. Both network regressions pass on Linux, startup stays alive for 12 seconds under Xvfb, and all eight MIX archives match the Mac. No match has yet been played. Installation hashes/evidence: `build/network-audit/macpro-install.json`; remote logs are in the installation directory. Linux exposed test header-order and unused-vtable linking issues, corrected in `CMakeLists.txt` and `tests/connection_test.cpp`.
+Both launchers enable `RA_FULLSCREEN=1 RA_WIDESCREEN=1 RA_CRT=1 RA_TITLE_ART=wide`. Linux CRT had been omitted from its launcher; enabling it restored the 856×400 logical canvas at 2560×1440 and readable copyright. The non-CRT 712-wide path had dropped columns while shrinking the 854-wide artwork. Verified screenshot: `build/network-audit/desync-20260910/linux-fixed-title.png`. Other aspect ratios/non-CRT title resampling are not generally fixed.
 
-## Linux freeze diagnosis — 2026-09-09
+## Combat determinism completed — acceptance pair
 
-Clicking Multiplayer froze before networking: debugger thread 1 showed `Select_MPlayer_Game → Draw_Line → Unlock → MacSDL_Present8 → MacMM_PumpTimers → Process_Mouse → Block_Mouse → EnterCriticalSection`, blocked in a futex. `InitializeCriticalSection` incorrectly inspected an uninitialized flag in freshly allocated mouse storage, sometimes skipping creation of the recursive mutex. Fixed in `PORT/MAC/include/windows.h`; `tests/timer_shim_test.cpp` now starts with poisoned storage and verifies recursive acquisition. The regression failed before the fix and passes locally afterward. Remote trace: `/home/rmp/ra-port-network-audit-20260909/freeze-debug.log`. Runtime retry and rebuilt Linux results are pending below until verified. Preserve newer concurrent AI/movie/CRT edits; only the lock fix is being transferred into the installed snapshot.
+All 11 unsequenced combat expressions in `CODE/BUILDING.CPP` and `CODE/ANIM.CPP` now use explicit draw order: scatter → delay → loops; crater type → scatter. `tests/combat_rng_test.cpp`, run through `python3 tests/run_ai_campaign_test.py build combat` (Linux: `build-linux`), exercises real napalm, debris, major damage and destruction over 64 seeds each. It checks animation type/position/delay/loops, ground scars and RNG state, and asserts fire/smoke/crater coverage. Fixed digests agree under Mac Clang and Linux GCC: `db093242 / 36e5458a / ca772854 / dc1ce682`. The old expressions agree with the fixture on Clang but fail **all four paths** on GCC. Production checksum/desync checks are unchanged.
 
-## Goal and current state
+Evidence and exact build/source/data identities: `build/combat-regression/` (`source-manifest.json`, `mac-identity.json`, `linux-identity.json`, `installed-builds.json`, platform negative-control logs). All eight MIX archives and presentation files match. AI, menu, camera, timer, connection and UDP regressions pass on both platforms; the full Mac script suite passes with temporary artifacts retained. Mac UDP required sockets outside the sandbox. Linux source/object timestamps required forcing recompilation after synchronization. Camera fixes and the concurrent September 10 icon/runtime update are preserved in the prepared pair.
 
-Make Red Alert easy to play privately with a friend over modern internet, presented as nostalgic dial-up: **Multiplayer → Dial a friend → Wait for call / Dial → host accepts → existing lobby**. Temporary invitation link/key; short skippable modem sounds. No artificial gameplay lag. Accounts, public matchmaking, saved contacts and reconnect/resume are outside the first milestone.
+## Installations and fresh-build caution
 
-LAN host/join is implemented and merged. Internet signaling, invite service, NAT traversal and relay transport are **not implemented**. Existing transport smoke tests are not proof of a complete synchronized match. A two-machine 30-minute match, results/rematch, disconnect handling and mixed macOS/Linux validation remain open.
+- Mac: `build/RA Widescreen Playtest.app`; packaging entry point `scripts/package_mac_playtest.py` (inspect current options before use).
+- Linux: `rmp@192.168.1.130` / `rmp-macpro5-1.local`, `/home/rmp/ra-port-current-20260910-073645`; desktop/app-menu shortcut **Red Alert — LAN Test**. Assets link to `/home/rmp/ra-port-lan/assets`. All eight MIX archives matched at installation. Older installations are retained.
+- LAN: **Multiplayer Game → Network → New / Join**, same subnet, UDP 34835. Do not expose this unauthenticated socket to the internet.
+- HEAD is `af214ed` with substantial concurrent uncommitted AI, camera, timer, UI and packaging work. Work directly on `main`; preserve all changes. **Use the combat-regression identity ledger, not the older menu-install ledger. Concurrent packaging can change installed binaries; recheck hashes before acceptance and never reuse old PIDs.** Check current source snapshots, binary/data hashes and running processes before testing. Mac ad-hoc signing changes the packaged binary hash.
 
-Run identical builds and game data on both computers. Choose **Multiplayer Game → Network**; host selects **New**, guest selects the advertised game and **Join**. Same subnet; UDP port **34835**. See README.md for build/run instructions.
+## Subsequent work to preserve
 
-## Read first / implementation map
+The in-match menu cursor fix in `CODE/CONQUER.CPP::Sync_Delay` pumps SDL input during dialog waits with a 1 ms yield. `PORT/MAC/src/mac_timer.cpp` uses 32-bit `LONG` deadline comparisons; native 64-bit `long` fired timers early. The engine menu regression improved from zero to 12 cursor updates per 200 ms on both platforms, with no frame advance and Escape still queued. Both game builds, campaign AI regressions, Mac script suite and Linux timer/network regressions passed. Evidence: `build/menu-regression/`, especially `installed-builds.json` and `linux-validation.log`; Linux backup `menu-timing-backup-68m4wg4p`. Live Options/Game Controls pointer acceptance remains open.
 
-- `PORT/MAC/src/lan_udp.cpp`: native UDP backend, `PacketTransport`, socket lifecycle, send/receive and subnet broadcast. Address mapping stores IPv4 and port in the legacy node address. Several base methods are stubs; inspect concrete overrides and callers before assigning transport semantics.
-- `CODE/WSPROTO.H`, `CODE/WSPUDP.H`: transport interfaces.
-- `CODE/IPXMGR.CPP`, `CODE/QUEUE.CPP`: inspect reliability, sequencing, synchronization, timeouts and command serialization before choosing data-channel delivery semantics.
-- `CODE/NETDLG.CPP`: network lobby/game creation. `CODE/MPLAYER.CPP`, `CODE/NULLDLG.CPP`: multiplayer entry and legacy modem/serial flows.
-- `tests/lan_udp_test.cpp`: existing socket smoke test; target `lan_udp_test` in CMakeLists.txt. Build with `cmake --build build --target lan_udp_test`, run `build/lan_udp_test`. Use existing script suite for shared-code regressions; its default cleanup permanently deletes temporary files, so retain artifacts or substitute Trash cleanup under this workspace's deletion rule.
-- `docs/PROJECT_PLAN.md`, section “Dial-up over modern internet”: agreed experience, architecture proposal and acceptance gates.
+Newer camera/zoom and overlap-list crash work is recorded in `docs/PROJECT_PLAN.md` and `build/camera-regression/test.log`; inspect affected current files without reverting it. Its installation on Linux has not been established here.
 
-## Next bounded deliverable: validate a complete LAN match
+## Next bounded deliverable: full LAN acceptance
 
-The contract audit is recorded in `docs/MULTIPLAYER_CONTRACT.md`. Use two real machines and its acceptance checklist; record exact commits, dirty changes, binary/data hashes, platforms and outcomes. Verify ready/start, 30-minute sustained play, results/rematch, host/guest disconnect and incompatible builds/maps. Fix demonstrated defects with narrow tests. Complete parser validation and explicit compatibility checks before implementing the internet adapter. Available local checks passed; no full match or mixed-platform result is claimed.
+The prepared builds reached their title screens with fullscreen/widescreen/CRT enabled (856×400 logical canvas at 2560×1440). Linux title screenshot: `build/combat-regression/linux-installed.png`; Mac title was visually inspected through the packaged app. Automated combat regression is **not** full LAN acceptance.
 
-## Following deliverable: two-peer internet transport spike
+1. Recheck installed binary hashes against `build/combat-regression/installed-builds.json`, then use **Multiplayer Game → Network → New / Join** on the two machines. Existing discovery/join/startup acceptance predates this new pair and must be repeated.
+2. Play at least 30 minutes with AI, construction, harvesting, combat, fire/napalm and building destruction. Record synchronized completion, not just process survival. Test zoom/panning and Options/Game Controls cursor movement.
+3. Verify results, rematch, host/guest exit, and network loss during lobby/loading/gameplay. These acceptance outcomes remain **open**.
+4. On desync, preserve **both resource roots’ `OUT.TXT` immediately**, before another failure overwrites them. Mac resource root: `build/RA Widescreen Playtest.app/Contents/MacOS`; Linux root: `/home/rmp/ra-port-current-20260910-073645`. Compare frame, RNG state and object destinations. Previous failing report stopped at frame 33 with zero player commands.
 
-Current proposal, not a selected dependency: a maintained WebRTC data-channel library such as libdatachannel behind a small C boundary; the game remains C++98. Verify current API/build/license requirements before adoption. Reuse the packet interface and game synchronization. Do not emulate physical serial wiring or rewrite the whole multiplayer stack.
+## Gate before internet work
 
-Use a small HTTPS/WebSocket rendezvous service for invitation lookup and connection metadata, ICE/STUN for direct routes, and TURN fallback. An invitation key does not eliminate signaling or relay requirements. Preserve message boundaries and stable peer identities; choose reliability/ordering only after the contract audit. GameNetworkingSockets is an alternative; standalone use does not automatically supply Steam's services.
+`docs/MULTIPLAYER_CONTRACT.md` contains the packet/lockstep trace, native-structure ABI assumptions, parser length/type gaps and missing explicit build/protocol/data compatibility. Close those gaps and LAN acceptance before adding internet transport. Key files: `PORT/MAC/src/lan_udp.cpp`, `CODE/WSPROTO.H`, `CODE/CONNECT.CPP`, `CODE/IPXMGR.CPP`, `CODE/QUEUE.CPP`, `CODE/NETDLG.CPP`. Prior reliable-sequence LP64, truncated-UDP and Linux recursive-mutex fixes have passing regressions; details remain in the contract and older evidence directories.
 
-Invites must be random, expiring and revocable, with host acceptance and connection binding. Short human-entered codes need attempt limits. Use authenticated encrypted transport, short-lived relay credentials, bounded packet/queue sizes and explicit protocol/build/map-data compatibility. Do not expose the existing unauthenticated LAN socket directly to the internet.
-
-Acceptance: connect across separate home networks without port forwarding; test direct and forced relay, cancel/expire/reject, representative latency/loss, full match without desync and clean return to menus after failure. Measure relay traffic before estimating operating cost. Add modem presentation only after this works. Do not deploy services or send invitations to others without authorization.
-
-## Shared-workspace cautions and presentation
-
-HEAD at handoff: `9c7d527`. Concurrent uncommitted AI and CRT work exists in HOUSE.CPP, TECHNO.CPP, ra_crt_gl.cpp, shared plan/tests and new AI/CRT test files. Inspect fresh status; preserve those edits. Identical commits alone do not imply identical binaries if built from dirty checkouts; game-logic differences matter for deterministic LAN play.
-
-Widescreen title now remains behind compact dialogs. Full-screen network setup still has its legacy layout; the expanded creation screen at `build/art-study/v2/index.html` is only a study. Keep small dialogs compact. Responsive network creation is separate from transport correctness. Original-art and physical-CRT overrides remain `RA_TITLE_ART=original` and `RA_CRT=0`.
+Then implement the agreed private **Dial a friend → Wait for call / Dial → host accepts → existing lobby** experience. A WebRTC data-channel adapter behind a C boundary is a candidate, not a chosen dependency; retain C++98 and existing lockstep. Require encrypted authenticated transport, stable peer binding, bounded packets/queues, random expiring/revocable invitations, rate limits for short codes, signaling and direct/relay routing with short-lived relay credentials. Verify separate home networks without port forwarding, forced relay, loss/latency, cancellation/expiry/rejection and clean failure recovery. Measure relay traffic before cost estimates. Add skippable modem presentation afterward. Accounts, public matchmaking and reconnect/resume are outside the first milestone. No service deployment or invitations without authorization.

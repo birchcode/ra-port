@@ -698,6 +698,18 @@ void EventClass::Execute(void)
 				*/
 				bool q = (Data.MegaMission.Mission == MISSION_QMOVE);
 
+				// A fresh order gets a fresh path attempt, even when it repeats the
+				// same destination. Queued waypoints must not interrupt current travel.
+				if (!q && techno->Is_Foot()) {
+					FootClass * foot = (FootClass *)techno;
+					foot->PathDelay = 0;
+					foot->TryTryAgain = FootClass::PATH_RETRY;
+					foot->PathThreshhold = MOVE_CLOAK;
+					foot->Path[0] = FACING_NONE;
+				}
+
+				// A repeated current mission must also replace a different pending order.
+				if (!q) techno->MissionQueue = MISSION_NONE;
 				techno->Assign_Mission(Data.MegaMission.Mission);
 
 				if (techno->Is_Foot()) {

@@ -87,7 +87,9 @@ void MacMM_PumpTimers(void)
 	for (int index = 0; index < timer_count(); ++index) {
 		MacMMTimerEvent *timer = &MacMMTimers[index];
 		if (!timer->active || !timer->callback) continue;
-		if ((long)(now - timer->next_due) < 0) continue;
+		// DWORD wraps at 32 bits; native long is 64 bits on macOS/Linux.
+		// Use the matching signed width so a future deadline stays negative.
+		if ((LONG)(now - timer->next_due) < 0) continue;
 
 		UINT id = timer->id;
 		UINT flags = timer->flags;

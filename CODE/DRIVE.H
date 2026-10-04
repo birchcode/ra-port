@@ -156,6 +156,8 @@ class DriveClass : public FootClass
 		virtual void Fixup_Path(PathType *path);
 		bool While_Moving(void);
 		bool Start_Of_Move(void);
+		bool Try_Formation_Yield(CELL cell);
+		bool Resolve_Harvester_Traffic(void);
 		void Lay_Track(void);
 		COORDINATE Smooth_Turn(COORDINATE adj, DirType & dir);
 

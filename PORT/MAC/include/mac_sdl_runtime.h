@@ -12,12 +12,26 @@ bool MacSDL_GetFullscreen(void);
 void MacSDL_Shutdown(void);
 void MacSDL_SetPalette(PALETTEENTRY const *entries, int count);
 void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pitch);
+// Short drawing-only scopes; never span a dialog's input loop.
+void MacSDL_BeginDrawBatch(void);
+void MacSDL_EndDrawBatch(void);
+class MacSDLDrawBatch {
+public:
+	MacSDLDrawBatch() { MacSDL_BeginDrawBatch(); }
+	~MacSDLDrawBatch() { MacSDL_EndDrawBatch(); }
+private:
+	MacSDLDrawBatch(MacSDLDrawBatch const &);
+	MacSDLDrawBatch &operator=(MacSDLDrawBatch const &);
+};
 void MacSDL_PumpEvents(void);
 bool MacSDL_QuitRequested(void);
 bool MacSDL_TouchCursorHidden(void);
 int MacSDL_ConsumeMobilePointerDrag(int *x, int *y);
 
 void MacSDL_SetCameraInput(bool enabled);
+double MacSDL_GetCameraZoom(void);
+void MacSDL_LimitCameraZoom(double minimum);
+bool MacSDL_ConsumeCameraZoom(int *x, int *y);
 bool MacSDL_ConsumeCameraPan(int *dx, int *dy, int *sidebar);
 bool MacSDL_CameraBounds(int *x, int *y, int *width, int *height);
 

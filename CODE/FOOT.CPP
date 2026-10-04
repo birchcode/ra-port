@@ -221,6 +221,29 @@ bool FootClass::Mark(MarkType mark)
 }
 
 
+// Assign_Destination may start pathfinding before the queued mission commences.
+bool FootClass::Is_Player_Move_Order(void) const
+{
+	return(House->IsHuman && (MissionQueue != MISSION_NONE ? MissionQueue : Mission) == MISSION_MOVE);
+}
+
+// Called only for a human unit blocked by moving traffic. Reuse the path
+// timer without adding saved object state. Each successful movement ends the wait.
+bool FootClass::Wait_For_Traffic(void)
+{
+	if (TryTryAgain != PATH_WAITING) {
+		TryTryAgain = PATH_WAITING;
+		PathDelay = max(3 * TICKS_PER_SECOND, int(Rule.PathDelay * TICKS_PER_MINUTE));
+	} else if (PathDelay == 0) {
+		// Skip the traffic shortcut once so persistent congestion can reroute.
+		PathThreshhold = MOVE_CLOAK;
+		TryTryAgain = 0;
+		return(false);
+	}
+	return(true);
+}
+
+
 /***********************************************************************************************
  * FootClass::Basic_Path -- Finds the basic path for a ground object.                          *
  *                                                                                             *
@@ -337,43 +360,31 @@ bool FootClass::Basic_Path(void)
 				if (PathThreshhold > maxtype) break;
 			}
 
-#ifdef NEVER
 			/*
-			**	Determine if ANY path could be calculated by first examining the most
-			**	aggressive case. If this fails, then no path will succeed. Further
-			**	scanning is unnecessary.
+			** A clear detour can succeed while the direct route is occupied by
+			** moving friends. Compare that route before accepting a large detour.
+			** Keep the traffic penalty and require a complete alternative; bounded
+			** searches can return partial paths with misleadingly small costs.
 			*/
-			path = Find_Path(cell, &workpath1[0], ARRAY_SIZE(workpath1), maxtype);
-			if (path && path->Cost) {
-				memcpy(&path1, path, sizeof(path1));
-				found1 = true;
-
-				/*
-				**	Scan for the best path possible. If this succeeds, then do a simple
-				**	comparison with the most aggressive path. If they are very close, then
-				**	go with the best (easiest) path method.
-				*/
-				path = Find_Path(cell, &workpath2[0], ARRAY_SIZE(workpath2), MOVE_CLOAK);
-				if (path && path->Cost && path->Cost < max((path1.Cost + (path1.Cost/2)), 3)) {
-					memcpy(&path1, path, sizeof(path1));
-					memcpy(workpath1, workpath2, sizeof(workpath1));
-				} else {
-
-					/*
-					**	The easiest path method didn't result in a satisfactory path. Scan through
-					**	the rest of the path options, looking for the best one.
-					*/
-					for (MoveType move = (MoveType)(MOVE_CLOAK+1); move < (MoveType)(maxtype-1); move++) {
-//					for (MoveType move = MOVE_MOVING_BLOCK; move < maxtype-1; move++) {
-						path = Find_Path(cell, &workpath2[0], ARRAY_SIZE(workpath2), move);
-						if (path && path->Cost && path->Cost < max((path1.Cost + (path1.Cost/2)), 3)) {
-							memcpy(&path1, path, sizeof(path1));
-							memcpy(workpath1, workpath2, sizeof(workpath1));
-						}
+			if (found1 && TryTryAgain > 0 &&
+				(Is_Player_Move_Order() || (House->IsHuman && What_Am_I() == RTTI_UNIT &&
+				 ((UnitClass *)this)->Class->IsToHarvest)) &&
+				PathThreshhold < MOVE_MOVING_BLOCK) {
+				FacingType traffic_moves[200];
+				PathType * traffic = Find_Path(cell, traffic_moves, ARRAY_SIZE(traffic_moves), MOVE_MOVING_BLOCK);
+				if (traffic && traffic->Cost > 0 &&
+					path1.Cost > traffic->Cost + traffic->Cost / 2) {
+					CELL end = traffic->Start;
+					for (int i = 0; i < traffic->Length && traffic_moves[i] != FACING_NONE; ++i) {
+						end = Adjacent_Cell(end, traffic_moves[i]);
+					}
+					if (end == cell) {
+						path1 = *traffic;
+						memcpy(workpath1, traffic_moves, traffic->Length * sizeof(FacingType));
+						path1.Command = workpath1;
 					}
 				}
 			}
-#endif
 
 			/*
 			**	If a good path was found, then record it in the object's path
@@ -381,7 +392,7 @@ bool FootClass::Basic_Path(void)
 			*/
 			if (found1) {
 				Fixup_Path(&path1);
-				memcpy(&Path[0], &workpath1[0], min(path->Length, (int)ARRAY_SIZE(Path)) * sizeof(Path[0]));
+				memcpy(&Path[0], &workpath1[0], min(path1.Length, (int)ARRAY_SIZE(Path)) * sizeof(Path[0]));
 			}
 
 			Mark(MARK_DOWN);
@@ -1018,6 +1029,9 @@ ResultType FootClass::Take_Damage(int & damage, int distance, WarheadType warhea
 	assert(IsActive);
 
 	ResultType result = TechnoClass::Take_Damage(damage, distance, warhead, source, forced);
+	if (result != RESULT_NONE && result != RESULT_DESTROYED && source != NULL) {
+		Alert_Nearby_Allies(source);
+	}
 
 	if (result != RESULT_NONE && Team) {
 
@@ -1082,6 +1096,38 @@ ResultType FootClass::Take_Damage(int & damage, int distance, WarheadType warhea
 		}
 	}
 	return(result);
+}
+
+
+/* Wake a small local defense group when an otherwise idle unit is attacked.
+** This deliberately does not interrupt moving, tethered, harvesting, or already
+** engaged units; those units retain their existing orders. */
+void FootClass::Alert_Nearby_Allies(TechnoClass const * source)
+{
+	if (!source || source->IsInLimbo || source->Strength <= 0 || House->Is_Ally(source)) return;
+
+	int alerted = 0;
+	static int const alert_range = 6 * CELL_LEPTON_W;
+
+	for (int pass = 0; pass < 2 && alerted < 2; ++pass) {
+		int count = pass == 0 ? Infantry.Count() : Units.Count();
+		for (int index = 0; index < count && alerted < 2; ++index) {
+			FootClass * ally = pass == 0 ? (FootClass *)Infantry.Ptr(index) : (FootClass *)Units.Ptr(index);
+			if (!ally || ally == this || !ally->IsActive || ally->IsInLimbo || ally->Strength <= 0 ||
+				ally->House != House || ally->IsDriving || ally->IsTethered ||
+				Target_Legal(ally->TarCom) || Target_Legal(ally->NavCom) ||
+				ally->Distance(Center_Coord()) > alert_range || !ally->Is_Weapon_Equipped() ||
+				ally->Combat_Damage() <= 0 ||
+				(ally->Mission != MISSION_NONE && ally->Mission != MISSION_GUARD &&
+				 ally->Mission != MISSION_GUARD_AREA && ally->Mission != MISSION_STOP) ||
+				!MissionControl[ally->Mission].IsRetaliate) {
+				continue;
+			}
+
+			ally->Override_Mission(MISSION_ATTACK, source->As_Target(), TARGET_NONE);
+			++alerted;
+		}
+	}
 }
 
 
@@ -1617,7 +1663,14 @@ int FootClass::Mission_Enter(void)
 		*/
 		if (Transmit_Message(RADIO_DOCKING, contact) != RADIO_ROGER && !IsTethered) {
 			Transmit_Message(RADIO_OVER_OUT);
-			Enter_Idle_Mode();
+			// A transport can refuse docking while moving yet still have room.
+			// Preserve the request until it stops; full/non-transport targets abort.
+			if (contact->Is_Foot() && House->Is_Ally(contact) &&
+				Transmit_Message(RADIO_CAN_LOAD, contact) == RADIO_ROGER) {
+				ArchiveTarget = contact->As_Target();
+			} else {
+				Enter_Idle_Mode();
+			}
 		}
 
 	} else {

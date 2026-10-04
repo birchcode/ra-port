@@ -8,12 +8,47 @@
  * See LICENSE.md.
  */
 
+// libc math declarations collide with the legacy aircraft global y1.
+#define y1 camera_bessel_y1
+#include <vector>
+#undef y1
 #include	"function.h"
 #include	"mac_sdl_runtime.h"
 #if defined(RA_MOBILE_TOUCH)
 #include	"mobile_rubber_band.h"
 #endif
 #include	"vortex.h"
+
+#if defined(RA_GAME_RUNTIME)
+static bool CameraZoomDrawing = false;
+
+static void camera_world_point(DisplayClass const &map, int &x, int &y)
+{
+	if (CameraZoomDrawing || MacSDL_GetCameraZoom() == 1) return;
+	int w = WindowList[WINDOW_TACTICAL][WINDOWWIDTH];
+	int h = WindowList[WINDOW_TACTICAL][WINDOWHEIGHT];
+	if (w > 0 && h > 0) {
+		x = map.TacPixelX + (x - map.TacPixelX) * Lepton_To_Pixel(map.TacLeptonWidth) / w;
+		y = map.TacPixelY + (y - map.TacPixelY) * Lepton_To_Pixel(map.TacLeptonHeight) / h;
+	}
+}
+#endif
+
+void DisplayClass::Apply_Camera_Zoom(void)
+{
+#if defined(RA_GAME_RUNTIME)
+	if (MapCellWidth > 0 && MapCellHeight > 0) {
+		double minimum = max((double)WindowList[WINDOW_TACTICAL][WINDOWWIDTH] / (MapCellWidth * CELL_PIXEL_W),
+			(double)WindowList[WINDOW_TACTICAL][WINDOWHEIGHT] / (MapCellHeight * CELL_PIXEL_H));
+		MacSDL_LimitCameraZoom(minimum);
+	}
+	double zoom = MacSDL_GetCameraZoom();
+	TacLeptonWidth = Pixel_To_Lepton((int)(WindowList[WINDOW_TACTICAL][WINDOWWIDTH] / zoom));
+	TacLeptonHeight = Pixel_To_Lepton((int)(WindowList[WINDOW_TACTICAL][WINDOWHEIGHT] / zoom));
+	Set_Tactical_Position(DesiredTacticalCoord);
+	Flag_To_Redraw(true);
+#endif
+}
 
 /*
 **	These layer control elements are used to group the displayable objects
@@ -542,6 +577,7 @@ void DisplayClass::Set_View_Dimensions(int x, int y, int width, int height)
 	TacButton.Y = TacPixelY;
 	TacButton.Width = Lepton_To_Pixel(TacLeptonWidth);
 	TacButton.Height = Lepton_To_Pixel(TacLeptonHeight);
+	Apply_Camera_Zoom();
 }
 
 
@@ -1084,6 +1120,9 @@ void DisplayClass::Remove(ObjectClass const * object, LayerType layer)
  *=============================================================================================*/
 CELL DisplayClass::Click_Cell_Calc(int x, int y) const
 {
+#if defined(RA_GAME_RUNTIME)
+	camera_world_point(*this, x, y);
+#endif
 	x -= TacPixelX;
 	x = Pixel_To_Lepton(x);
 	y -= TacPixelY;
@@ -1229,16 +1268,17 @@ bool DisplayClass::Scroll_Map(DirType facing, int & distance, bool really)
  *=============================================================================================*/
 void DisplayClass::Refresh_Cells(CELL cell, short const * list)
 {
-	short tlist[36];
-
 	if (*list == REFRESH_SIDEBAR) {
 		list++;
 	}
 
-	List_Copy(list, ARRAY_SIZE(tlist), tlist);
-	short * tt = tlist;
-	while (*tt != REFRESH_EOL) {
-		CELL newcell = cell + *tt++;
+	// Redraw callbacks may reuse the source list. Snapshot every offset: zoomed
+	// tooltips can exceed 36 cells, which used to truncate away REFRESH_EOL and
+	// make the traversal read beyond the stack buffer.
+	std::vector<short> offsets;
+	for (; *list != REFRESH_EOL; ++list) offsets.push_back(*list);
+	for (size_t index = 0; index < offsets.size(); ++index) {
+		CELL newcell = cell + offsets[index];
 		if (In_Radar(newcell)) {
 			(*this)[newcell].Redraw_Objects();
 		}
@@ -1493,6 +1533,12 @@ bool DisplayClass::Coord_To_Pixel(COORDINATE coord, int &x, int &y) const
 			if ((unsigned)yoff <= TacLeptonHeight + EDGE_ZONE*2) {
 				x = Lepton_To_Pixel(xoff)-CELL_PIXEL_W*2;
 				y = Lepton_To_Pixel(yoff)-CELL_PIXEL_H*2;
+#if defined(RA_GAME_RUNTIME)
+				if (!CameraZoomDrawing && MacSDL_GetCameraZoom() < 1) {
+					x = x * WindowList[WINDOW_TACTICAL][WINDOWWIDTH] / Lepton_To_Pixel(TacLeptonWidth);
+					y = y * WindowList[WINDOW_TACTICAL][WINDOWHEIGHT] / Lepton_To_Pixel(TacLeptonHeight);
+				}
+#endif
 				return(true);
 			}
 		}
@@ -1611,6 +1657,36 @@ ObjectClass * DisplayClass::Cell_Object(CELL cell, int x, int y) const
  *=============================================================================================*/
  void DisplayClass::Draw_It(bool forced)
 {
+#if defined(RA_GAME_RUNTIME)
+	if (!CameraZoomDrawing && MacSDL_GetCameraZoom() < 1) {
+		// Render the larger world view at native sprite resolution, then reduce only
+		// the battlefield. The sidebar, dialogs and mouse cursor retain their size.
+		static std::vector<unsigned char> zoom_pixels;
+		static GraphicBufferClass zoom_page;
+		int w = Lepton_To_Pixel(TacLeptonWidth), h = Lepton_To_Pixel(TacLeptonHeight);
+		int dw = WindowList[WINDOW_TACTICAL][WINDOWWIDTH];
+		int dh = WindowList[WINDOW_TACTICAL][WINDOWHEIGHT];
+		if (zoom_page.Get_Width() != w + TacPixelX || zoom_page.Get_Height() != h + TacPixelY) {
+			zoom_pixels.resize((w + TacPixelX) * (h + TacPixelY));
+			zoom_page.Init(w + TacPixelX, h + TacPixelY, &zoom_pixels[0], zoom_pixels.size(), GBC_NONE);
+		}
+		GraphicBufferClass *buffer = HidPage.Get_Graphic_Buffer();
+		int hx = HidPage.Get_XPos(), hy = HidPage.Get_YPos();
+		int hw = HidPage.Get_Width(), hh = HidPage.Get_Height();
+		HidPage.Attach(&zoom_page, 0, 0, w + TacPixelX, h + TacPixelY);
+		WindowList[WINDOW_TACTICAL][WINDOWWIDTH] = w;
+		WindowList[WINDOW_TACTICAL][WINDOWHEIGHT] = h;
+		CameraZoomDrawing = true;
+		zoom_page.Clear();
+		DisplayClass::Draw_It(true);
+		CameraZoomDrawing = false;
+		WindowList[WINDOW_TACTICAL][WINDOWWIDTH] = dw;
+		WindowList[WINDOW_TACTICAL][WINDOWHEIGHT] = dh;
+		HidPage.Attach(buffer, hx, hy, hw, hh);
+		zoom_page.Scale(HidPage, TacPixelX, TacPixelY, TacPixelX, TacPixelY, w, h, dw, dh, false, 0);
+		return;
+	}
+#endif
 	int	x,y;			// Working cell index values.
 
 	MapClass::Draw_It(forced);
@@ -2297,6 +2373,9 @@ ObjectClass * DisplayClass::Prev_Object(ObjectClass * object)  const
  *=============================================================================================*/
 COORDINATE DisplayClass::Pixel_To_Coord(int x, int y) const
 {
+#if defined(RA_GAME_RUNTIME)
+	camera_world_point(*this, x, y);
+#endif
 	/*
 	**	Normalize the pixel coordinates to be relative to the upper left corner
 	**	of the tactical map. The coordinates are expressed in leptons.
@@ -2664,6 +2743,9 @@ void DisplayClass::Select_These(COORDINATE coord1, COORDINATE coord2)
  *=============================================================================================*/
 void DisplayClass::Refresh_Band(void)
 {
+#if defined(RA_GAME_RUNTIME)
+	if (!CameraZoomDrawing && MacSDL_GetCameraZoom() < 1) return;
+#endif
 	if (IsRubberBand) {
 
 		/*
@@ -2776,6 +2858,9 @@ int DisplayClass::TacticalClass::Action(unsigned flags, KeyNumType & key)
 	if (coord) {
 
 		shadow = (!Map[cell].IsMapped && !Debug_Unshroud);
+#if defined(RA_GAME_RUNTIME)
+		camera_world_point(Map, x, y);
+#endif
 		x -= Map.TacPixelX;
 		y -= Map.TacPixelY;
 

@@ -1,6 +1,8 @@
 #include "mac_sdl.h"
 
 #include <stdint.h>
+#include <math.h>
+#include <vector>
 #include <stdlib.h>
 #include <string.h>
 
@@ -26,6 +28,26 @@ static bool MacSDLReady = false;
 static bool MacQuitRequested = false;
 static bool MacFullscreen = false;
 static bool MacPresenting = false;
+static unsigned MacDrawBatchDepth = 0;
+static std::vector<unsigned char> MacBatchedPixels;
+static int MacBatchedWidth = 0;
+static int MacBatchedHeight = 0;
+
+void MacSDL_BeginDrawBatch(void)
+{
+	++MacDrawBatchDepth;
+}
+
+void MacSDL_EndDrawBatch(void)
+{
+	if (!MacDrawBatchDepth || --MacDrawBatchDepth) return;
+	if (!MacBatchedWidth) return;
+	int width = MacBatchedWidth;
+	int height = MacBatchedHeight;
+	MacBatchedWidth = MacBatchedHeight = 0;
+	MacSDL_Present8(&MacBatchedPixels[0], width, height, width);
+}
+
 static bool MacCRTCaptured = false;
 static bool MacLegacyViewport = false;
 static bool MacMovieViewport = false;
@@ -53,12 +75,31 @@ static bool MacCameraInput = false;
 static bool MacCameraFocused = true;
 static bool MacCameraDragging = false;
 static double MacCameraX = 0, MacCameraY = 0, MacSidebarWheel = 0;
+static double MacCameraZoom = 1, MacRequestedZoom = 1;
+static int MacZoomAnchorX = 0, MacZoomAnchorY = 0;
+
+double MacSDL_GetCameraZoom(void) { return MacCameraZoom; }
+
+void MacSDL_LimitCameraZoom(double minimum)
+{
+	MacCameraZoom = fmin(1.0, fmax(minimum, MacCameraZoom));
+	MacRequestedZoom = MacCameraZoom;
+}
+
+bool MacSDL_ConsumeCameraZoom(int *x, int *y)
+{
+	if (MacCameraZoom == MacRequestedZoom) return false;
+	MacCameraZoom = MacRequestedZoom;
+	*x = MacZoomAnchorX; *y = MacZoomAnchorY;
+	return true;
+}
 
 static void mac_cancel_camera(void)
 {
 	if (MacCameraDragging) SDL_CaptureMouse(SDL_FALSE);
 	MacCameraDragging = false;
 	MacCameraX = MacCameraY = MacSidebarWheel = 0;
+	MacRequestedZoom = MacCameraZoom;
 }
 
 void MacSDL_SetCameraInput(bool enabled)
@@ -727,7 +768,8 @@ static bool mac_sdl_set_mode(int *width, int *height, bool allow_widescreen)
 	SDL_ShowCursor(SDL_DISABLE);
 #if !defined(RA_MOBILE_TOUCH)
 	SDL_Surface *icon = SDL_CreateRGBSurfaceWithFormatFrom(
-		(void *)RAWindowIcon, 32, 32, 32, 32 * 4, SDL_PIXELFORMAT_RGBA32);
+		(void *)RAWindowIcon, RAWindowIconSize, RAWindowIconSize, 32,
+		RAWindowIconSize * 4, SDL_PIXELFORMAT_RGBA32);
 	if (icon) {
 		SDL_SetWindowIcon(MacWindow, icon);
 		SDL_FreeSurface(icon);
@@ -797,6 +839,7 @@ bool MacSDL_SetLegacyViewport(bool enabled)
 
 void MacSDL_Shutdown(void)
 {
+	MacBatchedWidth = MacBatchedHeight = 0;
 	MacSDL_SetTitleBackground(0, 0, 0);
 	MacSDL_SetCameraInput(false);
 	if (MacFrame) {
@@ -872,8 +915,8 @@ static void mac_sdl_pump_events(bool allow_idle_delay)
 				if (mac_camera_bounds(&bx, &by, &bw, &bh) && MacCameraDragging) {
 					RAAspectViewport viewport = mac_window_viewport();
 					if (viewport.w > 0 && viewport.h > 0) {
-						MacCameraX -= (double)event.motion.xrel * mac_content_width() / viewport.w;
-						MacCameraY -= (double)event.motion.yrel * MacHeight / viewport.h;
+						MacCameraX -= (double)event.motion.xrel * mac_content_width() / viewport.w / MacCameraZoom;
+						MacCameraY -= (double)event.motion.yrel * MacHeight / viewport.h / MacCameraZoom;
 					}
 				}
 				break;
@@ -918,22 +961,17 @@ static void mac_sdl_pump_events(bool allow_idle_delay)
 				SDL_GetMouseState(&x, &y);
 				if (!mac_to_logical_point(&x, &y) || y < by || y >= by + bh) break;
 #if SDL_VERSION_ATLEAST(2, 0, 18)
-				double dx = event.wheel.preciseX, dy = event.wheel.preciseY;
+				double dy = event.wheel.preciseY;
 #else
-				double dx = event.wheel.x, dy = event.wheel.y;
+				double dy = event.wheel.y;
 #endif
-				if (event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED) { dx = -dx; dy = -dy; }
+				if (event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED) { dy = -dy; }
 				if (x >= bx + bw) {
 					MacSidebarWheel -= dy;
 				} else if (x >= bx) {
-					if (SDL_GetModState() & KMOD_SHIFT) { dx -= dy; dy = 0; }
-					char const *speed = getenv("RA_PAN_SPEED");
-					double scale = speed ? atof(speed) : 1;
-					if (!(scale >= 0.1 && scale <= 10)) scale = 1;
-					char const *reverse = getenv("RA_PAN_REVERSE");
-					if (reverse && strcmp(reverse, "1") == 0) scale = -scale;
-					MacCameraX += dx * 24 * scale;
-					MacCameraY -= dy * 24 * scale;
+					// Positive wheel input now zooms out; the original view is the closest level.
+					MacRequestedZoom = fmax(0.5, fmin(1.0, MacRequestedZoom * pow(1.125, -dy)));
+					MacZoomAnchorX = x; MacZoomAnchorY = y;
 				}
 				break;
 			}
@@ -1067,6 +1105,17 @@ void MacSDL_Present8(unsigned char const *pixels, int width, int height, int pit
 		return;
 	}
 	if (MacPresenting) {
+		return;
+	}
+
+	if (MacDrawBatchDepth) {
+		// Own the snapshot: a caller may reuse or release its drawing buffer.
+		MacBatchedPixels.resize((size_t)width * height);
+		for (int y = 0; y < height; ++y) {
+			memcpy(&MacBatchedPixels[(size_t)y * width], pixels + y * pitch, width);
+		}
+		MacBatchedWidth = width;
+		MacBatchedHeight = height;
 		return;
 	}
 

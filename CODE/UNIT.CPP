@@ -4436,6 +4436,7 @@ if (*b != STRUCT_REPAIR) {
 			} else {
 				TechnoClass * techno = As_Techno(target);
 				if (techno != NULL) {
+					ArchiveTarget = target;
 
 					/*
 					**	Determine if the transport is already in radio contact. If so, then just move

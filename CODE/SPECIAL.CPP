@@ -495,6 +495,7 @@ int Fetch_Difficulty(void)
 	while (process) {
 
 		if (redraw) {
+			MacSDLDrawBatch draw_batch;
 			redraw = false;
 
 			/*

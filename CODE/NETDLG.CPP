@@ -1794,6 +1794,7 @@ static int Net_Join_Dialog(void)
 		//	Refresh display if needed
 		//.....................................................................
 		if (display) {
+			MacSDLDrawBatch draw_batch;
 			Hide_Mouse();
 
 			//..................................................................
@@ -2354,12 +2355,14 @@ static int Net_Join_Dialog(void)
 				// (We have to redraw the edit line, to erase the cursor.)
 				//...............................................................
 				if (i==1) {
+					MacSDLDrawBatch draw_batch;
 					Hide_Mouse();
 					Draw_Box(d_send_x, d_send_y, d_send_w, d_send_h,
 						BOXSTYLE_BOX, true);
 					Session.Messages.Draw();
 					Show_Mouse();
 				} else if (i==2) {
+					MacSDLDrawBatch draw_batch;
 				//...............................................................
 				//	If 'Input' returned 2, it means redraw the message display.
 				// Rather than setting 'display', which would redraw all msgs,
@@ -4408,6 +4411,7 @@ static int Net_New_Dialog(void)
 		//	Refresh display if needed
 		//.....................................................................
 		if (display) {
+			MacSDLDrawBatch draw_batch;
 			Hide_Mouse();
 
 			//..................................................................
@@ -4813,12 +4817,14 @@ static int Net_New_Dialog(void)
 				//	If 'Input' returned 1, it means refresh the message display.
 				//...............................................................
 				if (i==1) {
+					MacSDLDrawBatch draw_batch;
 					Hide_Mouse();
 					Draw_Box(d_send_x, d_send_y, d_send_w, d_send_h,
 						BOXSTYLE_BOX, true);	// (erase the cursor)
 					Session.Messages.Draw();
 					Show_Mouse();
 				} else if (i==2) {
+					MacSDLDrawBatch draw_batch;
 				//...............................................................
 				//	If 'Input' returned 2, it means redraw the message display.
 				//...............................................................
@@ -6358,6 +6364,7 @@ static int Net_Fake_New_Dialog(void)
 		//	Refresh display if needed
 		//.....................................................................
 		if (display) {
+			MacSDLDrawBatch draw_batch;
 			Hide_Mouse();
 
 			//..................................................................
@@ -7142,6 +7149,7 @@ static int Net_Fake_Join_Dialog(void)
 		//	Refresh display if needed
 		//.....................................................................
 		if (display) {
+			MacSDLDrawBatch draw_batch;
 			Hide_Mouse();
 
 			//..................................................................

@@ -77,7 +77,7 @@ int HouseClass::AI_Production_Score(TechnoTypeClass const * type, int quantity) 
 	// Difficulty is the computer's handicap: DIFF_HARD is the player's Easy opponent.
 	bool easy = Difficulty == DIFF_HARD;
 	int army = CurInfantry + CurUnits;
-	if (easy && army >= max(8, CurBuildings)) return 0;
+	if (easy && army >= min(10, max(6, CurBuildings / 2))) return 0;
 	// Reserve cash for a selected economic recovery project instead of starving it with troops.
 	if (State != STATE_ATTACKED && BQuantity[STRUCT_CONST] > 0 && BuildStructure != STRUCT_NONE &&
 		Available_Money() < BuildingTypeClass::As_Reference(BuildStructure).Cost_Of() + 300) return 0;
@@ -99,7 +99,7 @@ int HouseClass::Tactical_AI(void)
 	// These are opponent handicaps, reversed from the difficulty shown to the player.
 	bool easy = Difficulty == DIFF_HARD;
 	bool hard = Difficulty == DIFF_EASY;
-	int think = TICKS_PER_SECOND * (easy ? 5 : hard ? 1 : 2);
+	int think = TICKS_PER_SECOND * (easy ? 8 : hard ? 1 : 2);
 	if (IsHuman || IsDefeated || !IsBaseBuilding) return think;
 	if (!Center) Recalc_Center();
 	if (!Center) {
@@ -196,7 +196,7 @@ int HouseClass::Tactical_AI(void)
 		}
 		if (incursion) {
 			// Easy keeps most of its garrison at their posts instead of mobilizing everyone.
-			if (easy && i >= 4 && !attacking && !Target_Legal(unit->TarCom)) {
+			if (easy && i >= 2 && !attacking && !Target_Legal(unit->TarCom)) {
 				COORDINATE anchor = assets.Count() == 0 ? Center : assets[i % assets.Count()]->Center_Coord();
 				Hold_Post(unit, Reachable_Post(unit, Offset_Cell(anchor, (int)i % 3 - 1, 2)));
 				continue;
@@ -230,10 +230,10 @@ int HouseClass::Tactical_AI(void)
 
 	// Keep a home reserve. Assemble the remainder before releasing a coordinated attack.
 	unsigned reserve = max(3, (int)ready.Count() / (easy ? 2 : hard ? 4 : 3));
-	unsigned waveend = easy ? min((unsigned)ready.Count(), reserve + 4) : ready.Count();
-	int minimum = easy ? 3 : 4;
+	unsigned waveend = easy ? min((unsigned)ready.Count(), reserve + 2) : ready.Count();
+	int minimum = easy ? 2 : 4;
 	bool assemble = !incursion && objective && Attack == 0 && ready.Count() >= reserve + minimum && fighting == 0 &&
-		(!easy || Frame >= TICKS_PER_MINUTE * 3);
+		(!easy || Frame >= TICKS_PER_MINUTE * 5);
 	int gathered = 0, strength = 0, assaultsize = 0;
 	for (unsigned i = 0; i < ready.Count(); ++i) {
 		FootClass * unit = ready[i];
@@ -273,7 +273,7 @@ int HouseClass::Tactical_AI(void)
 					aircraft->Assign_Mission(MISSION_ATTACK); aircraft->Assign_Target(objective->As_Target()); aircraft->Commence();
 				}
 			}
-			Attack = TICKS_PER_SECOND * (easy ? 120 : hard ? 15 : 30);
+			Attack = TICKS_PER_SECOND * (easy ? 180 : hard ? 15 : 30);
 		}
 	}
 	// A single scout searches legal map positions when no opponent has been discovered.

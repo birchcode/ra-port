@@ -2336,9 +2336,11 @@ int AircraftClass::Mission_Attack(void)
 				Assign_Destination(Good_Fire_Location(TarCom));
 				if (Target_Legal(NavCom)) {
 					Status = TAKE_OFF;
-				} else {
+				} else if (!House->IsHuman || !Ammo) {
 					Status = RETURN_TO_BASE;
 				}
+				// A busy attack zone can temporarily have no free firing position.
+				// Keep an armed player's order and retry at the mission interval.
 			}
 			break;
 
@@ -2379,11 +2381,12 @@ int AircraftClass::Mission_Attack(void)
 			if (Target_Legal(TarCom)) {
 
 				/*
-				**	If the navcom was cleared mysteriously, then try to pick
-				**	a new attack location. This is a likely event if the player
-				**	clicks on a new target while in flight to an existing target.
+				**	Repick if the destination was cleared, or the target moved
+				**	out of range of the planned firing position. Do not finish
+				**	flying to a position that can no longer reach the target.
 				*/
-				if (!Target_Legal(NavCom)) {
+				if (!Target_Legal(NavCom) ||
+					::Distance(As_Coord(NavCom), As_Coord(TarCom)) > Weapon_Range(0)) {
 					Status = PICK_ATTACK_LOCATION;
 					return(1);
 				}
@@ -2670,6 +2673,13 @@ RadioMessageType AircraftClass::Receive_Message(RadioClass * from, RadioMessageT
 		*/
 		case RADIO_DOCKING:
 			if (Class->Max_Passengers() > 0 && How_Many() < Class->Max_Passengers()) {
+				// Serialize passengers just like APCs: a standby passenger must
+				// establish its own radio contact before receiving boarding orders.
+				if (from == NULL || !House->Is_Ally(from->Owner())) return(RADIO_NEGATIVE);
+				if (Contact_With_Whom() != from) {
+					if (In_Radio_Contact()) return(RADIO_ROGER);
+					if (Transmit_Message(RADIO_HELLO, from) != RADIO_ROGER) return(RADIO_NEGATIVE);
+				}
 				FootClass::Receive_Message(from, message, param);
 
 				if (!IsTethered && !IsLanding && !IsTakingOff && Height == 0) {
