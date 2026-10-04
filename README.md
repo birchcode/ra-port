@@ -1,4 +1,4 @@
-# ra-port
+# RA Port
 
 **Native macOS, Linux, Android, and iOS source port of Command & Conquer: Red Alert.**
 
@@ -11,11 +11,26 @@
 [![Source-only](https://img.shields.io/badge/source--only-no%20game%20data-lightgrey)](#game-data)
 [![License](https://img.shields.io/badge/license-GPLv3%20with%20additional%20terms-blue)](#license-and-notice)
 
-`ra-port` lets you play Red Alert (1996) on modern platforms. It currently runs as native macOS and Linux executables, a local Android debug APK, and an iOS debug app, with SDL2 providing the platform layer.
+`ra-port` lets you play Red Alert (1996) on modern platforms using SDL2. This fork develops [dk8827/ra-port](https://github.com/dk8827/ra-port), adding desktop LAN multiplayer, widescreen presentation, optional CRT rendering, camera controls, and changes to enemy AI and unit movement. The macOS, Linux, Android, and iOS platform support comes from upstream; the newer gameplay and presentation work has primarily been exercised on desktop.
 
 ![Red Alert running natively in a macOS window](docs/images/ra-port-macos-window.png)
 
-The repository contains only source code and build tooling. No game assets are included in the repository. To play, provide legally obtained Red Alert assets from your own discs, mounted images, or local backups.
+The repository contains source, build tooling, and optional presentation artwork and icons. Original game data, movies, music, and disc images are not included. To play, provide legally obtained Red Alert assets from your own discs, mounted images, or local backups.
+
+## What This Fork Adds
+
+| Area | Changes from upstream |
+| --- | --- |
+| LAN multiplayer | Local UDP discovery, host/join screens, and match startup between macOS and Linux. Reliability, packet handling, and cross-platform AI/combat random-number sequencing fixes support the existing lockstep simulation. |
+| Fullscreen and widescreen | Fullscreen toggles, an expanded battlefield, aspect-aware rendering and input, wider network/skirmish setup screens, centered compact dialogs, and optional widescreen title artwork. |
+| Desktop camera | Middle-button grab panning, pointer-centered wheel/trackpad zoom from 1× down to ½×, sidebar list scrolling, and gesture cancellation on focus loss or dialog entry. |
+| CRT presentation | Optional OpenGL phosphor-mask and scanline rendering, clean/CRT split comparison, adjustable mask strength, an optional highlight-glow experiment, and framebuffer diagnostics. |
+| Enemy AI | Defensive posts, scouting, reserves, group attacks, incursion response, retreat/repair, counter-production, and improved campaign base economy. Easy difficulty has slower decisions, smaller attacks, and an opening grace period. |
+| Movement and orders | Traffic-aware routing, waits and local yielding at blocked paths, harvester and formation yielding, fresh-order retry resets, nearby ground-unit defense, and helicopter/transport order fixes. |
+| Desktop polish | Responsive in-game menu input, corrected timer comparisons, a zoom/tooltip overlap crash fix, desktop icons, and a local macOS widescreen playtest app packager. |
+| Parsing and regression coverage | Hardened CPS/LCW and VQA decoding, plus tests for AI, movement, camera geometry, combat determinism, menus, timers, networking, and CRT rendering. |
+
+See [fork changes and verification](docs/FORK_CHANGES.md) for the scope, evidence, and remaining checks. These changes preserve the original game engine and local asset workflow; internet multiplayer and release distribution are still unfinished.
 
 ## Why This Exists
 
@@ -27,25 +42,34 @@ This is an unofficial source port based on the source code Electronic Arts relea
 
 | Status | Feature | Notes |
 | --- | --- | --- |
-| :white_check_mark: | macOS on Apple Silicon | Builds and runs with CMake/Ninja. |
-| :white_check_mark: | Linux on Ubuntu | Builds and runs as a native SDL2 desktop executable. |
-| :white_check_mark: | Android debug APK | Builds a local landscape APK for arm64-v8a devices and emulators. |
-| :white_check_mark: | iOS debug app | Builds a landscape simulator/device app with CMake/Xcode. |
-| :white_check_mark: | Campaign | Allied and Soviet campaigns are fully working. |
-| :white_check_mark: | Skirmish | Local skirmish is fully working. |
+| :white_check_mark: | macOS on Apple Silicon | Native desktop build and local playtest app; current input-test failure is recorded under [Tests](#tests). |
+| :white_check_mark: | Linux on Ubuntu | Native SDL2 desktop executable; latest source checkpoint passed Linux CI. |
+| :white_check_mark: | Android debug APK | Inherited local landscape APK for arm64-v8a; latest shared-engine changes need a fresh mobile build/playtest. |
+| :white_check_mark: | iOS debug app | Inherited landscape simulator/device target; latest shared-engine changes need a fresh mobile build/playtest. |
+| :white_check_mark: | Campaign | Allied/Soviet campaign play with updated enemy AI; balance and broader campaign acceptance remain open. |
+| :white_check_mark: | Skirmish | Local skirmish with AI and movement changes; live crowded-path checks remain open. |
 | :white_check_mark: | Videos | Videos are playing with sound. |
 | :white_check_mark: | Controls and audio | macOS keyboard/mouse plus Android and iOS touch/audio work. |
-| :white_check_mark: | LAN multiplayer | macOS and Linux players can host and join over local UDP. |
+| :white_check_mark: | LAN multiplayer | macOS/Linux discovery, join, and match startup verified; a complete synchronized match, rematch, and disconnect recovery remain open. |
 | :x: | Internet multiplayer | Planned: private invite-code “dial-up” sessions; see [project plan](docs/PROJECT_PLAN.md). |
 | :white_check_mark: | Fullscreen and widescreen | Desktop fullscreen toggle, wider battlefield, and smoother presentation pacing. |
 | :white_check_mark: | Optional CRT display | Desktop OpenGL shader; enabled with `RA_CRT=1`. |
-| :x: | Launcher/setup tools | Not ported. |
+| :white_check_mark: | Desktop camera controls | Middle-drag panning, pointer-centered zoom, and sidebar wheel scrolling. |
+| :white_check_mark: | AI and movement improvements | Implemented with engine regressions; see [fork changes](docs/FORK_CHANGES.md) for limits. |
+| :x: | User-facing asset setup | Local preparation/run helpers exist; a guided installer is not implemented. |
 | :x: | Expansion packs | Not a focus yet. |
-| :x: | `.app` bundle | Not packaged yet; the build creates a normal macOS executable. |
+| :white_check_mark: | macOS playtest `.app` | `scripts/package_mac_playtest.py` builds a local app that links to your ignored game assets. |
 | :x: | Android release build | Only local debug APKs are supported right now. |
 | :x: | iOS release build | Only local debug simulator/device builds are supported right now. |
 
 ## Quick Start
+
+Clone this fork:
+
+```sh
+git clone https://github.com/birchcode/ra-port.git
+cd ra-port
+```
 
 Install the macOS build tools:
 
@@ -108,7 +132,7 @@ scripts/run_ios_simulator.sh --no-build
 
 ## Game Data
 
-The repository contains only source code and build tooling. It does not contain game data, movies, music, disc images, archives, installers, generated palettes, or packaged executables.
+Original game archives, movies, music, disc images, installers, generated runtime palette caches, and packaged executables are excluded from Git. The optional widescreen title artwork and desktop icons are included separately from the original game data.
 
 The asset preparation script copies from local paths that you provide:
 
@@ -136,7 +160,14 @@ The build currently creates a raw macOS executable:
 build/redalert_mac
 ```
 
-It is not packaged as a `.app` bundle yet.
+To package that executable as the local widescreen playtest app:
+
+```sh
+python3 scripts/package_mac_playtest.py
+open "build/RA Widescreen Playtest.app"
+```
+
+Prepare your game assets first. The app links to this checkout's `assets/` directory and copies the optional `presentation/` files; it is a local playtest package, not a standalone distributable. Moving the checkout requires rebuilding the package so its asset link points to the new location.
 
 ## Linux Desktop
 
@@ -362,11 +393,25 @@ RA_FULLSCREEN=1 RA_WIDESCREEN=1 RA_EDGE_SCROLL=0 scripts/run_mac_dev.sh
 
 ## Tests
 
+At the saved source checkpoint [`c33a31b`](https://github.com/birchcode/ra-port/commit/c33a31b3a3c72145af9c4aafa8c3858a828e0269), [Linux CI passed](https://github.com/birchcode/ra-port/actions/runs/37217102852). The [macOS CI build completed but its test step failed](https://github.com/birchcode/ra-port/actions/runs/37217102868) at `tests/input_shim_test.cpp:43`: `camera_input_test` could not obtain its expected SDL window (`assert(window)`). The same assertion occurred in the local 4 October 2026 script-suite run. The full current macOS suite is therefore not claimed to pass. Older successful checks in the handoffs describe their tested snapshots.
+
 Run the source-level tests and script checks:
 
 ```sh
 tests/run_script_tests.sh
 ```
+
+After building with Ninja and a compilation database, run the real-engine regressions:
+
+```sh
+python3 tests/run_ai_campaign_test.py build ai
+python3 tests/run_ai_campaign_test.py build menu
+python3 tests/run_ai_campaign_test.py build camera
+python3 tests/run_ai_campaign_test.py build combat
+python3 tests/run_ai_campaign_test.py build path
+```
+
+On Linux, replace `build` with `build-linux`. These fixtures exercise engine methods without requiring original game assets. They supplement gameplay checks; they do not establish full campaign, LAN, mobile, or release acceptance.
 
 Validate a fresh checkout with a full build first:
 
@@ -401,13 +446,16 @@ tests/run_script_tests.sh
 | `WIN32LIB/`, `WINVQ/` | Legacy support libraries used by the port |
 | `scripts/` | Asset preparation, run helpers, smoke capture, Linux include overlay generation |
 | `tests/` | Focused source-level and shim tests |
+| `docs/` | Fork changes, validation handoffs, and remaining project work |
+| `presentation/` | Optional widescreen title artwork and its provenance |
+| `packaging/` | Desktop icons and Linux launcher template |
 | `docs/images/` | README images only, not game data |
 
 ## Contributing
 
-The port is intentionally conservative: keep original source layout and behavior recognizable, and prefer small platform-specific support files over broad rewrites. Good next areas are macOS `.app` packaging, Linux packaging, Android/iOS release packaging, physical device validation, Intel macOS validation, save/load hardening, expansion support, CI coverage, and mobile input/UI polish.
+Keep the original source layout recognizable and preserve scripted missions, save compatibility, and deterministic multiplayer behavior when changing gameplay. Prefer focused changes with regression coverage. Work directly on `main` in this fork, following [AGENTS.md](AGENTS.md), unless a different workflow is explicitly requested.
 
-The next priorities are desktop camera controls, easier play setup, and a private internet multiplayer prototype. See [project state and ordered plan](docs/PROJECT_PLAN.md) for acceptance checks and remaining validation.
+The next checks are the current macOS input-test failure, live movement and Easy-difficulty playtests, a complete synchronized LAN match, and fresh mobile builds. Save/load and longer-session coverage, guided asset setup, portable desktop packaging, and mobile release/device validation remain useful follow-ups. A private internet multiplayer prototype comes after the LAN and protocol checks in the [multiplayer contract](docs/MULTIPLAYER_CONTRACT.md). See [fork changes](docs/FORK_CHANGES.md) for the current summary and [project plan](docs/PROJECT_PLAN.md) for the development history and acceptance details.
 
 ## License And Notice
 
